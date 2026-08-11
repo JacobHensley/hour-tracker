@@ -59,6 +59,12 @@ const MIN_LOGGABLE_MINUTES = 1;
 
 const CLOCK_TICK_MS = 1000;
 
+/** Task workflow states, in the order they appear in the dropdown. */
+const TASK_STATUSES = ['Not started', 'In Progress', 'Paused', 'Complete', 'Billed'];
+
+/** Applied to new tasks, and to tasks created before statuses existed. */
+const DEFAULT_TASK_STATUS = TASK_STATUSES[0];
+
 // ---------- DOM helpers ----------
 
 /** Shorthand for document.getElementById. */
@@ -205,9 +211,20 @@ async function addTask() {
   if (!selectedTaskId) selectedTaskId = id;
 
   try {
-    await setDoc(doc(tasksCol(), id), { name, createdAt: Date.now() });
+    await setDoc(doc(tasksCol(), id), { name, status: DEFAULT_TASK_STATUS, createdAt: Date.now() });
   } catch (error) {
     showError('Could not add task: ' + error.message);
+  }
+}
+
+/** Changes a task's workflow status. */
+async function setTaskStatus(id, status) {
+  if (!TASK_STATUSES.includes(status)) return;
+
+  try {
+    await updateDoc(doc(tasksCol(), id), { status });
+  } catch (error) {
+    showError('Could not update status: ' + error.message);
   }
 }
 
@@ -417,10 +434,21 @@ function taskRowHtml(task) {
     <li class="task-item">
       <span class="task-name">${escapeHtml(task.name)}</span>
       <span class="task-right">
+        ${taskStatusSelectHtml(task)}
         <button class="btn-ghost" data-action="edit" data-id="${task.id}" aria-label="Rename">✎</button>
         <button class="btn-ghost danger" data-action="delete" data-id="${task.id}" aria-label="Delete">🗑</button>
       </span>
     </li>`;
+}
+
+/** Builds the status dropdown for one task row. */
+function taskStatusSelectHtml(task) {
+  const current = task.status || DEFAULT_TASK_STATUS;
+  const options = TASK_STATUSES.map(
+    (status) => `<option value="${status}"${status === current ? ' selected' : ''}>${status}</option>`
+  ).join('');
+
+  return `<select class="task-status" data-status-for="${task.id}" aria-label="Status">${options}</select>`;
 }
 
 /** Builds the markup for a task row in rename mode. */
@@ -639,6 +667,11 @@ $('task-list').addEventListener('click', (event) => {
   } else if (action === 'delete') {
     deleteTask(id);
   }
+});
+
+$('task-list').addEventListener('change', (event) => {
+  const select = event.target.closest('[data-status-for]');
+  if (select) setTaskStatus(select.dataset.statusFor, select.value);
 });
 
 $('log-container').addEventListener('click', (event) => {

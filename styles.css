@@ -222,8 +222,15 @@ button {
   border-bottom: none;
 }
 
+/* min-width lets a long name ellipsize instead of pushing the status
+   dropdown and buttons off the row. */
 .task-name {
+  min-width: 0;
+  padding-right: 10px;
   font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-right,
@@ -232,6 +239,13 @@ button {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+
+.task-status {
+  width: auto;
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--dim);
 }
 
 .edit-row input {

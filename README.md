@@ -94,9 +94,13 @@ Open that URL on your phone, then:
 ## Data model
 
 ```
-users/{uid}/tasks/{taskId}       { name, createdAt }
+users/{uid}/tasks/{taskId}       { name, status, createdAt }
 users/{uid}/sessions/{sessionId} { taskId, taskName, date: "YYYY-MM-DD", minutes, createdAt }
 ```
 
 Sessions snapshot `taskName` so deleting a task never breaks history;
 renaming a task rewrites the snapshots to match.
+
+`status` is one of `Not started`, `In Progress`, `Paused`, `Complete`, `Billed`.
+Tasks created before the field existed have no `status` and read as `Not started`
+until you change them.
