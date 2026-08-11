@@ -1,0 +1,340 @@
+/* ---------- Design tokens ---------- */
+:root {
+  --bg: #101418;
+  --panel: #1a2027;
+  --border: #2a323c;
+  --text: #dee4ea;
+  --dim: #8c97a3;
+  --accent: #5bb8a0;
+  --accent-dark: #2e5f53;
+  --warn: #d9924b;
+  --danger: #c96a5a;
+
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ---------- Layout ---------- */
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
+
+section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--dim);
+}
+
+/* A horizontal group of controls. `.row-spaced` adds the gap that
+   separates stacked rows inside a section. */
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.row > * {
+  flex: none;
+}
+
+.row .grow {
+  flex: 1 1 160px;
+}
+
+.row-spaced {
+  margin-bottom: 12px;
+}
+
+.section-header {
+  justify-content: space-between;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+/* ---------- Header ---------- */
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.header-right {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.today {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dim);
+  align-self: center;
+}
+
+.sync-dot.online {
+  background: var(--accent);
+}
+
+/* ---------- Form controls ---------- */
+input,
+select,
+button {
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  outline: none;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+}
+
+.input-minutes {
+  width: 90px;
+}
+
+.input-date-inline {
+  width: auto;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-accent {
+  background: var(--accent-dark);
+  color: var(--text);
+}
+
+.btn-warn {
+  background: var(--warn);
+  color: var(--bg);
+}
+
+.btn-ghost {
+  padding: 4px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 15px;
+}
+
+.btn-ghost.danger {
+  color: var(--danger);
+}
+
+/* ---------- Tasks ---------- */
+.task-list,
+.day-block {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.task-item,
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.task-item:last-child,
+.session-item:last-child {
+  border-bottom: none;
+}
+
+.task-name {
+  font-size: 14px;
+}
+
+.task-right,
+.session-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.edit-row input {
+  flex: 1;
+}
+
+/* ---------- Timer ---------- */
+.clock {
+  padding: 0 4px;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.clock.live {
+  color: var(--warn);
+}
+
+/* ---------- Session log ---------- */
+.log-range {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.day-label {
+  margin-top: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.day-block:first-child .day-label {
+  margin-top: 0;
+}
+
+.session-task {
+  padding-right: 10px;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Summary ---------- */
+.summary-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.summary-title {
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.summary-item .val {
+  color: var(--accent);
+}
+
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.summary-total .val {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+/* ---------- Status messages ---------- */
+.empty {
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.empty.inline {
+  padding: 0;
+}
+
+.error {
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  background: #2a2118;
+  border: 1px solid #4a3826;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--warn);
+}
+
+.loading {
+  padding: 60px 0;
+  font-size: 13px;
+  color: var(--dim);
+  text-align: center;
+}

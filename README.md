@@ -7,9 +7,25 @@ no login screen, no server to maintain, and the free tier never pauses.
 
 ## Files
 
-- `index.html` — the entire app (UI + Firebase wiring)
+- `index.html` — markup
+- `styles.css` — all styling
+- `app.js` — all behavior (UI rendering + Firebase wiring)
 - `firestore.rules` — security rules (paste into the Firebase console)
 - `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png` — PWA install + offline shell
+
+No build step — the files are served as-is.
+
+## Running it locally
+
+Serve the folder over HTTP; don't open `index.html` as a `file://` URL. Module
+scripts, the manifest, and the service worker are all blocked on `file://`
+because each such document is a unique opaque origin.
+
+```
+python3 -m http.server 8000
+```
+
+Then open http://localhost:8000.
 
 ## Setup (one time, ~10 minutes)
 
@@ -39,12 +55,12 @@ These rules mean: a user can only read/write documents under
 `users/{their own uid}`. That's the entire security model — which is why
 the config in the next step is safe to commit publicly.
 
-### 5. Paste your config into index.html
+### 5. Paste your config into app.js
 
 1. Project settings (gear icon) → **General** → scroll to **Your apps** →
    click the web icon (`</>`) → register the app (no hosting needed).
 2. Copy the `firebaseConfig` object it shows you.
-3. In `index.html`, find the `firebaseConfig` block marked
+3. In `app.js`, find the `firebaseConfig` block marked
    `PASTE YOUR FIREBASE CONFIG HERE` and replace the placeholder values.
 
 ### 6. Host on GitHub Pages

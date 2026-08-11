@@ -1,501 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Hour Tracker</title>
-<link rel="manifest" href="manifest.json" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Hours" />
-<meta name="theme-color" content="#101418" />
-<link rel="apple-touch-icon" href="icon-192.png" />
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-  * { box-sizing: border-box; }
-  :root {
-    --bg: #101418;
-    --panel: #1A2027;
-    --border: #2A323C;
-    --text: #DEE4EA;
-    --dim: #8C97A3;
-    --accent: #5BB8A0;
-    --accent-dark: #2E5F53;
-    --warn: #D9924B;
-    --danger: #C96A5A;
-  }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
-    font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-  .mono { font-family: 'IBM Plex Mono', monospace; }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
-  h1 { font-size: 17px; letter-spacing: 0.04em; color: var(--accent); margin: 0; }
-  .header-right { display: flex; align-items: baseline; gap: 10px; }
-  .today { font-size: 12px; color: var(--dim); }
-  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); align-self: center; }
-  .sync-dot.online { background: var(--accent); }
-  section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    padding: 16px; margin-bottom: 16px; }
-  h2 { font-size: 11px; color: var(--dim); margin: 0 0 12px; font-weight: 500; letter-spacing: 0.03em; }
-  input, select, button { font-family: 'Inter', sans-serif; font-size: 14px; }
-  input, select {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
-    color: var(--text); padding: 8px 10px; outline: none; width: 100%;
-  }
-  input:focus, select:focus { border-color: var(--accent); }
-  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
-  button {
-    border: none; border-radius: 5px; padding: 8px 14px; font-weight: 500; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  .btn-accent { background: var(--accent-dark); color: var(--text); }
-  .btn-warn { background: var(--warn); color: #101418; }
-  .btn-ghost { background: transparent; color: var(--dim); padding: 4px; font-size: 15px; }
-  .btn-ghost.danger { color: var(--danger); }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .row > * { flex: none; }
-  .row .grow { flex: 1 1 160px; }
-  .task-list, .day-block { list-style: none; margin: 0; padding: 0; }
-  .task-item, .session-item {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 0; border-bottom: 1px solid var(--border);
-  }
-  .task-item:last-child, .session-item:last-child { border-bottom: none; }
-  .task-name { font-size: 14px; }
-  .day-label { font-size: 11px; color: var(--dim); font-family: 'IBM Plex Mono', monospace;
-    padding-bottom: 4px; margin-top: 10px; border-bottom: 1px solid var(--border); }
-  .day-block:first-child .day-label { margin-top: 0; }
-  .session-task { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px; }
-  .session-right, .task-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .clock { font-size: 22px; font-variant-numeric: tabular-nums; color: var(--dim); padding: 0 4px; }
-  .clock.live { color: var(--warn); }
-  .empty { font-size: 13px; color: var(--dim); padding: 6px 0; }
-  .error { font-size: 12px; color: var(--warn); background: #2A2118; border: 1px solid #4A3826;
-    padding: 8px 10px; border-radius: 5px; margin-bottom: 14px; }
-  .loading { text-align: center; color: var(--dim); padding: 60px 0; font-size: 13px; }
-  .summary-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-top: 14px; }
-  .summary-title { font-size: 11px; color: var(--dim); margin-bottom: 6px; }
-  .summary-item { display: flex; justify-content: space-between; padding: 4px 0; }
-  .summary-total { display: flex; justify-content: space-between; padding-top: 8px; margin-top: 6px;
-    border-top: 1px solid var(--border); font-weight: 600; }
-  .summary-total .val { color: var(--accent); font-family: 'IBM Plex Mono', monospace; }
-  .edit-row input { flex: 1; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <h1 class="mono">HOUR TRACKER</h1>
-    <div class="header-right">
-      <span class="sync-dot" id="sync-dot" title="Sync status"></span>
-      <span class="today mono" id="today-label"></span>
-    </div>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Hour Tracker</title>
 
-  <div id="error-box"></div>
-  <div class="loading" id="loading">Connecting…</div>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <meta name="theme-color" content="#101418" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Hours" />
 
-  <div id="app" style="display:none;">
-    <section>
-      <h2>TASKS</h2>
-      <div class="row" style="margin-bottom:12px;">
-        <input class="grow" id="new-task-input" placeholder="New task name" />
-        <button class="btn-accent" id="add-task-btn">+ Add</button>
-      </div>
-      <ul class="task-list" id="task-list"></ul>
-    </section>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    />
 
-    <section>
-      <h2>NEW SESSION</h2>
-      <div class="row" style="margin-bottom:12px;">
-        <select class="grow" id="task-select"><option value="">Select task…</option></select>
-        <button class="btn-accent" id="timer-btn">Start</button>
-        <span class="clock mono" id="clock">00:00:00</span>
-      </div>
-      <div class="row">
-        <span class="empty" style="padding:0;">or log manually:</span>
-        <input type="number" min="1" step="1" placeholder="Minutes" style="width:90px;" id="manual-minutes" />
-        <input type="date" id="manual-date" />
-        <button class="btn-accent" id="manual-log-btn">Log</button>
-      </div>
-    </section>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
 
-    <section>
-      <div class="row" style="justify-content: space-between; margin-bottom:12px;">
-        <h2 style="margin:0;">SESSION LOG</h2>
-        <div class="row mono" style="font-size:12px; color:var(--dim);">
-          <span>from</span>
-          <input type="date" id="from-date" style="width:auto;" />
-          <span>to today</span>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1 class="mono">HOUR TRACKER</h1>
+        <div class="header-right">
+          <span class="sync-dot" id="sync-dot" title="Sync status"></span>
+          <span class="today mono" id="today-label"></span>
         </div>
+      </header>
+
+      <div id="error-box"></div>
+      <div class="loading" id="loading">Connecting…</div>
+
+      <div id="app" hidden>
+        <section>
+          <h2>TASKS</h2>
+          <div class="row row-spaced">
+            <input class="grow" id="new-task-input" placeholder="New task name" />
+            <button class="btn-accent" id="add-task-btn">+ Add</button>
+          </div>
+          <ul class="task-list" id="task-list"></ul>
+        </section>
+
+        <section>
+          <h2>NEW SESSION</h2>
+          <div class="row row-spaced">
+            <select class="grow" id="task-select">
+              <option value="">Select task…</option>
+            </select>
+            <button class="btn-accent" id="timer-btn">Start</button>
+            <span class="clock mono" id="clock">00:00:00</span>
+          </div>
+          <div class="row">
+            <span class="empty inline">or log manually:</span>
+            <input class="input-minutes" id="manual-minutes" type="number" min="1" step="1" placeholder="Minutes" />
+            <input id="manual-date" type="date" />
+            <button class="btn-accent" id="manual-log-btn">Log</button>
+          </div>
+        </section>
+
+        <section>
+          <div class="row section-header row-spaced">
+            <h2>SESSION LOG</h2>
+            <div class="row log-range mono">
+              <span>from</span>
+              <input class="input-date-inline" id="from-date" type="date" />
+              <span>to today</span>
+            </div>
+          </div>
+          <div id="log-container"></div>
+        </section>
       </div>
-      <div id="log-container"></div>
-    </section>
-  </div>
-</div>
+    </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getAuth, signInAnonymously, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {
-  initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, getDocs, query, where
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// ============================================================
-// PASTE YOUR FIREBASE CONFIG HERE (Project settings → General →
-// Your apps → SDK setup and configuration → Config).
-// This config is safe to commit publicly — access control is
-// enforced by Firestore security rules, not by hiding this.
-// ============================================================
-const firebaseConfig = {
-  apiKey: "AIzaSyDs-H4grv6Ti6UKTL0JHG_8FvP08vV-9bg",
-  authDomain: "hour-tracker-ce485.firebaseapp.com",
-  projectId: "hour-tracker-ce485",
-  storageBucket: "hour-tracker-ce485.firebasestorage.app",
-  messagingSenderId: "388018522367",
-  appId: "1:388018522367:web:2766da98af7809d3f6e4ca",
-  measurementId: "G-V5REBHBGPY"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-// Offline persistence: app keeps working with no connection; Firestore
-// queues writes and syncs when back online.
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
-});
-
-// ---------- helpers ----------
-const $ = (id) => document.getElementById(id);
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
-function todayStr() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-function daysAgoStr(n) {
-  const d = new Date(); d.setDate(d.getDate() - n);
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-function fmtDate(dateStr) {
-  const [y,m,d] = dateStr.split('-').map(Number);
-  return new Date(y, m-1, d).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
-}
-function fmtMinutes(mins) {
-  const h = Math.floor(mins/60), m = mins % 60;
-  return h === 0 ? m + 'm' : h + 'h ' + String(m).padStart(2,'0') + 'm';
-}
-function fmtClock(seconds) {
-  const h = Math.floor(seconds/3600), m = Math.floor((seconds%3600)/60), s = Math.floor(seconds%60);
-  return [h,m,s].map(v => String(v).padStart(2,'0')).join(':');
-}
-function esc(str) {
-  const d = document.createElement('div'); d.textContent = str ?? ''; return d.innerHTML;
-}
-function showError(msg) {
-  $('error-box').innerHTML = msg ? '<div class="error">' + esc(msg) + '</div>' : '';
-}
-
-// ---------- state ----------
-let userId = null;
-let tasks = [];      // { id, name }
-let sessions = [];   // { id, taskId, taskName, date, minutes }
-let selectedTaskId = '';
-let editingTaskId = null;
-let fromDate = daysAgoStr(13);
-let tickHandle = null;
-
-// The running timer stays device-local on purpose: it's transient state,
-// and syncing a live clock across devices adds complexity without value.
-const TIMER_KEY = 'hour-tracker-active-timer';
-function getActiveTimer() {
-  try { return JSON.parse(localStorage.getItem(TIMER_KEY)); } catch { return null; }
-}
-function setActiveTimer(t) {
-  if (t) localStorage.setItem(TIMER_KEY, JSON.stringify(t));
-  else localStorage.removeItem(TIMER_KEY);
-}
-
-// ---------- firestore refs ----------
-const tasksCol = () => collection(db, 'users', userId, 'tasks');
-const sessionsCol = () => collection(db, 'users', userId, 'sessions');
-
-// ---------- task CRUD ----------
-async function addTask() {
-  const input = $('new-task-input');
-  const name = input.value.trim();
-  if (!name) return;
-  if (tasks.some(t => t.name.toLowerCase() === name.toLowerCase())) {
-    showError('Task "' + name + '" already exists.'); return;
-  }
-  showError('');
-  const id = uid();
-  input.value = '';
-  if (!selectedTaskId) selectedTaskId = id;
-  try {
-    await setDoc(doc(tasksCol(), id), { name, createdAt: Date.now() });
-  } catch (e) { showError('Could not add task: ' + e.message); }
-}
-
-async function saveTaskEdit(id) {
-  const input = $('edit-input-' + id);
-  const name = input.value.trim();
-  if (!name) return;
-  editingTaskId = null;
-  try {
-    await updateDoc(doc(tasksCol(), id), { name });
-    // keep session snapshots in sync with the rename
-    const snap = await getDocs(query(sessionsCol(), where('taskId', '==', id)));
-    if (!snap.empty) {
-      const batch = writeBatch(db);
-      snap.forEach(d => batch.update(d.ref, { taskName: name }));
-      await batch.commit();
-    }
-  } catch (e) { showError('Could not rename task: ' + e.message); }
-}
-
-async function deleteTask(id) {
-  const active = getActiveTimer();
-  if (active && active.taskId === id) { showError('Stop the timer before deleting its task.'); return; }
-  showError('');
-  if (selectedTaskId === id) selectedTaskId = '';
-  try {
-    await deleteDoc(doc(tasksCol(), id));
-    // sessions keep their taskName snapshot so history stays intact
-  } catch (e) { showError('Could not delete task: ' + e.message); }
-}
-
-// ---------- sessions ----------
-function taskName(id) {
-  const t = tasks.find(t => t.id === id);
-  return t ? t.name : null;
-}
-
-async function logSession(taskId, date, minutes) {
-  const id = uid();
-  try {
-    await setDoc(doc(sessionsCol(), id), {
-      taskId,
-      taskName: taskName(taskId) || 'Unknown task',
-      date,
-      minutes,
-      createdAt: Date.now()
-    });
-  } catch (e) { showError('Could not log session: ' + e.message); }
-}
-
-function startTimer() {
-  selectedTaskId = $('task-select').value;
-  if (!selectedTaskId) { showError('Pick a task first.'); return; }
-  showError('');
-  setActiveTimer({ taskId: selectedTaskId, startedAt: Date.now() });
-  render();
-}
-
-async function stopTimer() {
-  const active = getActiveTimer();
-  if (!active) return;
-  const seconds = (Date.now() - active.startedAt) / 1000;
-  const minutes = Math.round(seconds / 60); // nearest minute
-  setActiveTimer(null);
-  if (minutes < 1) { showError('Session under 30 seconds — not logged.'); render(); return; }
-  showError('');
-  await logSession(active.taskId, todayStr(), minutes);
-  render();
-}
-
-async function addManualSession() {
-  selectedTaskId = $('task-select').value;
-  if (!selectedTaskId) { showError('Pick a task first.'); return; }
-  const mins = Math.round(parseFloat($('manual-minutes').value));
-  if (!mins || mins <= 0) { showError('Enter minutes greater than 0.'); return; }
-  showError('');
-  await logSession(selectedTaskId, $('manual-date').value || todayStr(), mins);
-  $('manual-minutes').value = '';
-}
-
-async function deleteSession(id) {
-  try { await deleteDoc(doc(sessionsCol(), id)); }
-  catch (e) { showError('Could not delete session: ' + e.message); }
-}
-
-// expose handlers used by inline onclick attributes
-window._app = { deleteTask, saveTaskEdit, deleteSession,
-  editTask(id) { editingTaskId = id; render(); },
-  cancelEdit() { editingTaskId = null; render(); } };
-
-// ---------- timer tick ----------
-function tick() {
-  const active = getActiveTimer();
-  if (!active) return;
-  const el = $('clock');
-  if (el) el.textContent = fmtClock(Math.floor((Date.now() - active.startedAt) / 1000));
-}
-function ensureTicking() {
-  if (tickHandle) { clearInterval(tickHandle); tickHandle = null; }
-  if (getActiveTimer()) tickHandle = setInterval(tick, 1000);
-}
-
-// ---------- render ----------
-function render() {
-  $('today-label').textContent = fmtDate(todayStr());
-  const active = getActiveTimer();
-
-  // Tasks
-  const taskList = $('task-list');
-  if (tasks.length === 0) {
-    taskList.innerHTML = '<div class="empty">No tasks yet — add one above to start logging time against it.</div>';
-  } else {
-    taskList.innerHTML = tasks.map(t => {
-      if (editingTaskId === t.id) {
-        return '<li class="task-item edit-row">' +
-          '<input id="edit-input-' + t.id + '" value="' + esc(t.name) + '" />' +
-          '<span class="task-right">' +
-            '<button class="btn-ghost" onclick="_app.saveTaskEdit(\'' + t.id + '\')" aria-label="Save">✓</button>' +
-            '<button class="btn-ghost" onclick="_app.cancelEdit()" aria-label="Cancel">✕</button>' +
-          '</span></li>';
-      }
-      return '<li class="task-item">' +
-        '<span class="task-name">' + esc(t.name) + '</span>' +
-        '<span class="task-right">' +
-          '<button class="btn-ghost" onclick="_app.editTask(\'' + t.id + '\')" aria-label="Rename">✎</button>' +
-          '<button class="btn-ghost danger" onclick="_app.deleteTask(\'' + t.id + '\')" aria-label="Delete">🗑</button>' +
-        '</span></li>';
-    }).join('');
-  }
-  // focus the edit input if we just opened one
-  if (editingTaskId) {
-    const el = $('edit-input-' + editingTaskId);
-    if (el) {
-      el.focus();
-      el.addEventListener('keydown', e => { if (e.key === 'Enter') saveTaskEdit(editingTaskId); });
-    }
-  }
-
-  // Task select
-  const sel = $('task-select');
-  const activeTaskId = active ? active.taskId : selectedTaskId;
-  sel.innerHTML = '<option value="">Select task…</option>' +
-    tasks.map(t => '<option value="' + t.id + '"' + (t.id === activeTaskId ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('');
-  sel.disabled = !!active;
-
-  // Timer button + clock
-  const timerBtn = $('timer-btn');
-  const clockEl = $('clock');
-  if (active) {
-    timerBtn.textContent = 'Stop';
-    timerBtn.className = 'btn-warn';
-    timerBtn.onclick = stopTimer;
-    clockEl.classList.add('live');
-    tick();
-  } else {
-    timerBtn.textContent = 'Start';
-    timerBtn.className = 'btn-accent';
-    timerBtn.onclick = startTimer;
-    clockEl.classList.remove('live');
-    clockEl.textContent = '00:00:00';
-  }
-  ensureTicking();
-
-  // Date inputs
-  const manualDateEl = $('manual-date');
-  if (!manualDateEl.value) manualDateEl.value = todayStr();
-  manualDateEl.max = todayStr();
-  const fromEl = $('from-date');
-  fromEl.value = fromDate;
-  fromEl.max = todayStr();
-
-  // Log + summary
-  const today = todayStr();
-  const visible = sessions
-    .filter(s => s.date >= fromDate && s.date <= today)
-    .sort((a,b) => a.date < b.date ? 1 : (a.date > b.date ? -1 : (b.createdAt||0) - (a.createdAt||0)));
-
-  const byDate = {};
-  visible.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
-  const dateOrder = Object.keys(byDate).sort((a,b) => a < b ? 1 : -1);
-
-  const logEl = $('log-container');
-  if (visible.length === 0) {
-    logEl.innerHTML = '<div class="empty">No sessions in this range.</div>';
-  } else {
-    let html = dateOrder.map(date => {
-      const rows = byDate[date].map(s =>
-        '<li class="session-item">' +
-          '<span class="session-task">' + esc(s.taskName) + '</span>' +
-          '<span class="session-right">' +
-            '<span class="mono">' + fmtMinutes(s.minutes) + '</span>' +
-            '<button class="btn-ghost danger" onclick="_app.deleteSession(\'' + s.id + '\')" aria-label="Delete session">🗑</button>' +
-          '</span></li>'
-      ).join('');
-      return '<div class="day-block"><div class="day-label">' + fmtDate(date) + '</div><ul class="task-list">' + rows + '</ul></div>';
-    }).join('');
-
-    const summary = {};
-    visible.forEach(s => { summary[s.taskName] = (summary[s.taskName] || 0) + s.minutes; });
-    const summaryRows = Object.entries(summary).sort((a,b) => b[1]-a[1]);
-    const totalMinutes = visible.reduce((sum,s) => sum + s.minutes, 0);
-
-    html += '<div class="summary-box">' +
-      '<div class="summary-title mono">SUMMARY · ' + fmtDate(fromDate) + ' → today</div>' +
-      summaryRows.map(([name,mins]) =>
-        '<div class="summary-item"><span>' + esc(name) + '</span><span class="mono" style="color:var(--accent)">' + fmtMinutes(mins) + '</span></div>'
-      ).join('') +
-      '<div class="summary-total"><span>Total</span><span class="val">' + fmtMinutes(totalMinutes) + '</span></div>' +
-    '</div>';
-
-    logEl.innerHTML = html;
-  }
-}
-
-// ---------- boot ----------
-function subscribe() {
-  onSnapshot(tasksCol(), (snap) => {
-    tasks = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
-    render();
-  }, (e) => showError('Task sync error: ' + e.message));
-
-  onSnapshot(sessionsCol(), (snap) => {
-    sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    render();
-  }, (e) => showError('Session sync error: ' + e.message));
-}
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    userId = user.uid;
-    $('loading').style.display = 'none';
-    $('app').style.display = 'block';
-    $('sync-dot').classList.add('online');
-    subscribe();
-    render();
-  }
-});
-
-signInAnonymously(auth).catch((e) => {
-  $('loading').textContent = 'Could not connect: ' + e.message +
-    ' — check that Anonymous auth is enabled in the Firebase console.';
-});
-
-window.addEventListener('online', () => $('sync-dot').classList.add('online'));
-window.addEventListener('offline', () => $('sync-dot').classList.remove('online'));
-
-// ---------- events ----------
-$('add-task-btn').onclick = addTask;
-$('new-task-input').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
-$('manual-log-btn').onclick = addManualSession;
-$('task-select').addEventListener('change', e => { selectedTaskId = e.target.value; });
-$('from-date').addEventListener('change', e => { fromDate = e.target.value; render(); });
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
-</script>
-</body>
+    <script type="module" src="app.js"></script>
+  </body>
 </html>
