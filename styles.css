@@ -184,6 +184,11 @@ button {
   color: var(--bg);
 }
 
+.btn-muted {
+  background: var(--border);
+  color: var(--text);
+}
+
 .btn-ghost {
   padding: 4px;
   background: transparent;

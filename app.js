@@ -61,6 +61,7 @@ const CLOCK_TICK_MS = 1000;
 
 // ---------- DOM helpers ----------
 
+/** Shorthand for document.getElementById. */
 const $ = (id) => document.getElementById(id);
 
 /** Escapes text for safe interpolation into an innerHTML template. */
@@ -70,16 +71,19 @@ function escapeHtml(value) {
   return div.innerHTML;
 }
 
+/** Shows an error banner above the app, or clears it when given no message. */
 function showError(message) {
   $('error-box').innerHTML = message ? `<div class="error">${escapeHtml(message)}</div>` : '';
 }
 
+/** Hides the error banner. */
 function clearError() {
   showError('');
 }
 
 // ---------- Formatting helpers ----------
 
+/** Generates a unique id for a new Firestore document. */
 function createId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -92,10 +96,12 @@ function toIsoDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+/** Returns today's date as `YYYY-MM-DD`. */
 function todayIso() {
   return toIsoDate(new Date());
 }
 
+/** Returns the date `days` before today as `YYYY-MM-DD`. */
 function daysAgoIso(days) {
   const date = new Date();
   date.setDate(date.getDate() - days);
@@ -137,7 +143,13 @@ let editingTaskId = null;
 let fromDate = daysAgoIso(DEFAULT_RANGE_DAYS);
 let tickHandle = null;
 
-/** @returns {{ taskId: string, startedAt: number } | null} */
+/**
+ * The stored timer is `{ taskId, accumulatedMs, startedAt }`. `accumulatedMs` is
+ * time banked by earlier run segments; `startedAt` is when the current segment
+ * began, or null while paused. Elapsed time is the sum of the two.
+ */
+
+/** Reads the active timer from localStorage, or null if there isn't one. */
 function getActiveTimer() {
   try {
     return JSON.parse(localStorage.getItem(TIMER_STORAGE_KEY));
@@ -146,6 +158,7 @@ function getActiveTimer() {
   }
 }
 
+/** Saves the running timer to localStorage, or clears it when passed null. */
 function setActiveTimer(timer) {
   if (timer) {
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer));
@@ -154,13 +167,28 @@ function setActiveTimer(timer) {
   }
 }
 
+/** Total elapsed milliseconds for a timer, including time banked before any pauses. */
+function elapsedMs(timer) {
+  // Timers saved before pause existed have no accumulatedMs; they read as 0.
+  const banked = timer.accumulatedMs || 0;
+  return timer.startedAt ? banked + (Date.now() - timer.startedAt) : banked;
+}
+
+/** True when a timer exists but its clock is currently frozen. */
+function isTimerPaused(timer) {
+  return Boolean(timer) && !timer.startedAt;
+}
+
 // ---------- Firestore references ----------
 
+/** References the signed-in user's tasks collection. */
 const tasksCol = () => collection(db, 'users', userId, 'tasks');
+/** References the signed-in user's sessions collection. */
 const sessionsCol = () => collection(db, 'users', userId, 'sessions');
 
 // ---------- Tasks ----------
 
+/** Adds the task named in the input, rejecting duplicate names. */
 async function addTask() {
   const input = $('new-task-input');
   const name = input.value.trim();
@@ -183,6 +211,7 @@ async function addTask() {
   }
 }
 
+/** Renames a task and rewrites the taskName snapshot on all of its sessions. */
 async function saveTaskEdit(id) {
   const input = $('edit-input-' + id);
   const name = input.value.trim();
@@ -205,6 +234,7 @@ async function saveTaskEdit(id) {
   }
 }
 
+/** Deletes a task, unless its timer is currently running. */
 async function deleteTask(id) {
   const activeTimer = getActiveTimer();
   if (activeTimer && activeTimer.taskId === id) {
@@ -223,6 +253,7 @@ async function deleteTask(id) {
   }
 }
 
+/** Looks up a task's current name by id, or null if it no longer exists. */
 function findTaskName(id) {
   const task = tasks.find((candidate) => candidate.id === id);
   return task ? task.name : null;
@@ -230,6 +261,7 @@ function findTaskName(id) {
 
 // ---------- Sessions ----------
 
+/** Writes one session, snapshotting the task's name at the time. */
 async function logSession(taskId, date, minutes) {
   const id = createId();
   try {
@@ -245,6 +277,7 @@ async function logSession(taskId, date, minutes) {
   }
 }
 
+/** Logs a session from the manual minutes and date inputs. */
 async function addManualSession() {
   selectedTaskId = $('task-select').value;
   if (!selectedTaskId) {
@@ -263,6 +296,7 @@ async function addManualSession() {
   $('manual-minutes').value = '';
 }
 
+/** Deletes one logged session. */
 async function deleteSession(id) {
   try {
     await deleteDoc(doc(sessionsCol(), id));
@@ -273,6 +307,7 @@ async function deleteSession(id) {
 
 // ---------- Timer ----------
 
+/** Starts the timer for the selected task. */
 function startTimer() {
   selectedTaskId = $('task-select').value;
   if (!selectedTaskId) {
@@ -281,16 +316,34 @@ function startTimer() {
   }
   clearError();
 
-  setActiveTimer({ taskId: selectedTaskId, startedAt: Date.now() });
+  setActiveTimer({ taskId: selectedTaskId, accumulatedMs: 0, startedAt: Date.now() });
   render();
 }
 
+/** Freezes the clock, banking the time run so far. */
+function pauseTimer() {
+  const activeTimer = getActiveTimer();
+  if (!activeTimer || isTimerPaused(activeTimer)) return;
+
+  setActiveTimer({ ...activeTimer, accumulatedMs: elapsedMs(activeTimer), startedAt: null });
+  render();
+}
+
+/** Restarts the clock from the banked time. */
+function resumeTimer() {
+  const activeTimer = getActiveTimer();
+  if (!activeTimer || !isTimerPaused(activeTimer)) return;
+
+  setActiveTimer({ ...activeTimer, startedAt: Date.now() });
+  render();
+}
+
+/** Stops the timer and logs the elapsed time, discarding sub-minute sessions. */
 async function stopTimer() {
   const activeTimer = getActiveTimer();
   if (!activeTimer) return;
 
-  const elapsedSeconds = (Date.now() - activeTimer.startedAt) / 1000;
-  const minutes = Math.round(elapsedSeconds / 60); // nearest minute
+  const minutes = Math.round(elapsedMs(activeTimer) / 60000); // nearest minute
   setActiveTimer(null);
 
   if (minutes < MIN_LOGGABLE_MINUTES) {
@@ -304,29 +357,33 @@ async function stopTimer() {
   render();
 }
 
+/** Repaints the clock from the running timer's start time. */
 function tick() {
   const activeTimer = getActiveTimer();
   if (!activeTimer) return;
 
   const clock = $('clock');
   if (clock) {
-    clock.textContent = formatClock(Math.floor((Date.now() - activeTimer.startedAt) / 1000));
+    clock.textContent = formatClock(Math.floor(elapsedMs(activeTimer) / 1000));
   }
 }
 
-/** Runs the clock only while a timer is active. */
+/** Runs the clock only while a timer is active and unpaused. */
 function ensureTicking() {
   if (tickHandle) {
     clearInterval(tickHandle);
     tickHandle = null;
   }
-  if (getActiveTimer()) {
+
+  const activeTimer = getActiveTimer();
+  if (activeTimer && !isTimerPaused(activeTimer)) {
     tickHandle = setInterval(tick, CLOCK_TICK_MS);
   }
 }
 
 // ---------- Rendering ----------
 
+/** Redraws the whole UI from the current state. */
 function render() {
   const activeTimer = getActiveTimer();
 
@@ -338,6 +395,7 @@ function render() {
   renderSessionLog();
 }
 
+/** Draws the task list, or an empty-state message when there are none. */
 function renderTaskList() {
   const taskList = $('task-list');
 
@@ -353,6 +411,7 @@ function renderTaskList() {
   focusTaskEditInput();
 }
 
+/** Builds the markup for one task row. */
 function taskRowHtml(task) {
   return `
     <li class="task-item">
@@ -364,6 +423,7 @@ function taskRowHtml(task) {
     </li>`;
 }
 
+/** Builds the markup for a task row in rename mode. */
 function taskEditRowHtml(task) {
   return `
     <li class="task-item edit-row">
@@ -388,6 +448,7 @@ function focusTaskEditInput() {
   });
 }
 
+/** Fills the task dropdown, locking it while a timer runs. */
 function renderTaskSelect(activeTimer) {
   const select = $('task-select');
   const activeTaskId = activeTimer ? activeTimer.taskId : selectedTaskId;
@@ -405,20 +466,34 @@ function renderTaskSelect(activeTimer) {
   select.disabled = Boolean(activeTimer);
 }
 
+/** Switches the button and clock between their start and stop states. */
 function renderTimerControls(activeTimer) {
   const timerBtn = $('timer-btn');
+  const pauseBtn = $('pause-btn');
   const clock = $('clock');
 
   if (activeTimer) {
+    const paused = isTimerPaused(activeTimer);
+
     timerBtn.textContent = 'Stop';
     timerBtn.className = 'btn-warn';
     timerBtn.onclick = stopTimer;
-    clock.classList.add('live');
+
+    pauseBtn.hidden = false;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    pauseBtn.className = paused ? 'btn-accent' : 'btn-muted';
+    pauseBtn.onclick = paused ? resumeTimer : pauseTimer;
+
+    // The clock only reads as "live" while it's actually counting.
+    clock.classList.toggle('live', !paused);
     tick();
   } else {
     timerBtn.textContent = 'Start';
     timerBtn.className = 'btn-accent';
     timerBtn.onclick = startTimer;
+
+    pauseBtn.hidden = true;
+
     clock.classList.remove('live');
     clock.textContent = '00:00:00';
   }
@@ -426,6 +501,7 @@ function renderTimerControls(activeTimer) {
   ensureTicking();
 }
 
+/** Syncs the date inputs to current state and caps them at today. */
 function renderDateInputs() {
   const today = todayIso();
 
@@ -438,6 +514,7 @@ function renderDateInputs() {
   rangeStart.max = today;
 }
 
+/** Draws the sessions in range, grouped by day, followed by the summary. */
 function renderSessionLog() {
   const logContainer = $('log-container');
   const today = todayIso();
@@ -458,6 +535,7 @@ function renderSessionLog() {
   logContainer.innerHTML = dayBlocksHtml(visible) + summaryHtml(visible);
 }
 
+/** Groups sessions by date and builds one dated block per day. */
 function dayBlocksHtml(visibleSessions) {
   const sessionsByDate = new Map();
   for (const session of visibleSessions) {
@@ -477,6 +555,7 @@ function dayBlocksHtml(visibleSessions) {
     .join('');
 }
 
+/** Builds the markup for one session row. */
 function sessionRowHtml(session) {
   return `
     <li class="session-item">
@@ -493,6 +572,7 @@ function sessionRowHtml(session) {
     </li>`;
 }
 
+/** Builds the per-task totals and grand total for the visible range. */
 function summaryHtml(visibleSessions) {
   const minutesByTask = new Map();
   for (const session of visibleSessions) {
