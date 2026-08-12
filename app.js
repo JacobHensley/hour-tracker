@@ -51,6 +51,9 @@ const db = initializeFirestore(app, {
  *  and syncing a live clock across devices adds complexity without value. */
 const TIMER_STORAGE_KEY = 'hour-tracker-active-timer';
 
+/** Where the task filter selection is remembered between visits. */
+const FILTER_STORAGE_KEY = 'hour-tracker-status-filter';
+
 /** Days before today that the session log covers by default (a two-week window). */
 const DEFAULT_RANGE_DAYS = 13;
 
@@ -64,6 +67,7 @@ const TASK_STATUSES = ['Not started', 'In Progress', 'Paused', 'Complete', 'Bill
 
 /** Applied to new tasks, and to tasks created before statuses existed. */
 const DEFAULT_TASK_STATUS = TASK_STATUSES[0];
+
 
 // ---------- DOM helpers ----------
 
@@ -146,6 +150,7 @@ let tasks = []; // { id, name, createdAt }
 let sessions = []; // { id, taskId, taskName, date, minutes, createdAt }
 let selectedTaskId = '';
 let editingTaskId = null;
+let taskStatusFilter = loadStatusFilter(); // statuses currently ticked in the filter
 let fromDate = daysAgoIso(DEFAULT_RANGE_DAYS);
 let tickHandle = null;
 
@@ -185,6 +190,24 @@ function isTimerPaused(timer) {
   return Boolean(timer) && !timer.startedAt;
 }
 
+/** Reads the saved filter selection, defaulting to showing every status. */
+function loadStatusFilter() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY));
+    if (!Array.isArray(saved)) return new Set(TASK_STATUSES);
+
+    // Ignore anything that is no longer a real status.
+    return new Set(saved.filter((status) => TASK_STATUSES.includes(status)));
+  } catch {
+    return new Set(TASK_STATUSES);
+  }
+}
+
+/** Remembers the filter selection so it survives a reload. */
+function saveStatusFilter() {
+  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify([...taskStatusFilter]));
+}
+
 // ---------- Firestore references ----------
 
 /** References the signed-in user's tasks collection. */
@@ -215,6 +238,16 @@ async function addTask() {
   } catch (error) {
     showError('Could not add task: ' + error.message);
   }
+}
+
+/** A task's status, treating tasks saved before the field existed as the default. */
+function taskStatus(task) {
+  return task.status || DEFAULT_TASK_STATUS;
+}
+
+/** True when a task's status is ticked in the filter. */
+function matchesStatusFilter(task) {
+  return taskStatusFilter.has(taskStatus(task));
 }
 
 /** Changes a task's workflow status. */
@@ -405,6 +438,7 @@ function render() {
   const activeTimer = getActiveTimer();
 
   $('today-label').textContent = formatDate(todayIso());
+  renderStatusFilter();
   renderTaskList();
   renderTaskSelect(activeTimer);
   renderTimerControls(activeTimer);
@@ -421,7 +455,14 @@ function renderTaskList() {
     return;
   }
 
-  taskList.innerHTML = tasks
+  const visible = tasks.filter(matchesStatusFilter);
+
+  if (visible.length === 0) {
+    taskList.innerHTML = '<div class="empty">No tasks match the current filter.</div>';
+    return;
+  }
+
+  taskList.innerHTML = visible
     .map((task) => (task.id === editingTaskId ? taskEditRowHtml(task) : taskRowHtml(task)))
     .join('');
 
@@ -443,7 +484,7 @@ function taskRowHtml(task) {
 
 /** Builds the status dropdown for one task row. */
 function taskStatusSelectHtml(task) {
-  const current = task.status || DEFAULT_TASK_STATUS;
+  const current = taskStatus(task);
   const options = TASK_STATUSES.map(
     (status) => `<option value="${status}"${status === current ? ' selected' : ''}>${status}</option>`
   ).join('');
@@ -477,13 +518,63 @@ function focusTaskEditInput() {
 }
 
 /** Fills the task dropdown, locking it while a timer runs. */
+/** Summarizes the ticked statuses for the filter button's label. */
+function statusFilterLabel() {
+  if (taskStatusFilter.size === TASK_STATUSES.length) return 'All';
+  if (taskStatusFilter.size === 0) return 'None';
+  if (taskStatusFilter.size === 1) return [...taskStatusFilter][0];
+  return `${taskStatusFilter.size} selected`;
+}
+
+/** Builds the checkbox list inside the filter popup. */
+function statusFilterPanelHtml() {
+  const allTicked = taskStatusFilter.size === TASK_STATUSES.length;
+
+  const options = TASK_STATUSES.map(
+    (status) => `
+      <label class="filter-option">
+        <input type="checkbox" data-status="${status}"${taskStatusFilter.has(status) ? ' checked' : ''} />
+        ${status}
+      </label>`
+  ).join('');
+
+  return `
+    <label class="filter-option">
+      <input type="checkbox" data-select-all${allTicked ? ' checked' : ''} />
+      All
+    </label>
+    <div class="filter-divider"></div>
+    ${options}`;
+}
+
+/** Repaints the filter button label and the popup's checkboxes. */
+function renderStatusFilter() {
+  $('status-filter-btn').textContent = statusFilterLabel();
+  $('status-filter-panel').innerHTML = statusFilterPanelHtml();
+}
+
+/** Opens or closes the filter popup; with no argument, flips it. */
+function toggleStatusFilter(open) {
+  const panel = $('status-filter-panel');
+  const shouldOpen = open ?? panel.hidden;
+
+  panel.hidden = !shouldOpen;
+  $('status-filter-btn').setAttribute('aria-expanded', String(shouldOpen));
+}
+
 function renderTaskSelect(activeTimer) {
   const select = $('task-select');
   const activeTaskId = activeTimer ? activeTimer.taskId : selectedTaskId;
 
+  // The filter applies here too, but a running timer's task always stays
+  // listed so the dropdown never contradicts what's actually being timed.
+  const selectable = tasks.filter(
+    (task) => matchesStatusFilter(task) || (activeTimer && task.id === activeTimer.taskId)
+  );
+
   select.innerHTML =
     '<option value="">Select task…</option>' +
-    tasks
+    selectable
       .map(
         (task) =>
           `<option value="${task.id}"${task.id === activeTaskId ? ' selected' : ''}>${escapeHtml(task.name)}</option>`
@@ -667,6 +758,33 @@ $('task-list').addEventListener('click', (event) => {
   } else if (action === 'delete') {
     deleteTask(id);
   }
+});
+
+$('status-filter-btn').addEventListener('click', () => toggleStatusFilter());
+
+$('status-filter-panel').addEventListener('change', (event) => {
+  const box = event.target;
+
+  if (box.hasAttribute('data-select-all')) {
+    taskStatusFilter = box.checked ? new Set(TASK_STATUSES) : new Set();
+  } else if (box.dataset.status) {
+    if (box.checked) taskStatusFilter.add(box.dataset.status);
+    else taskStatusFilter.delete(box.dataset.status);
+  } else {
+    return;
+  }
+
+  saveStatusFilter();
+  render();
+});
+
+// A click anywhere outside the popup, or Escape, dismisses it.
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('#status-filter-btn, #status-filter-panel')) toggleStatusFilter(false);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') toggleStatusFilter(false);
 });
 
 $('task-list').addEventListener('change', (event) => {

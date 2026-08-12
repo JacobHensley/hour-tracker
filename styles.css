@@ -76,8 +76,11 @@ h2 {
   gap: 8px;
 }
 
+/* max-width keeps a wide control (date inputs especially) from spilling past
+   the card edge on narrow screens; it wraps or shrinks instead. */
 .row > * {
   flex: none;
+  max-width: 100%;
 }
 
 .row .grow {
@@ -159,8 +162,13 @@ input[type='date']::-webkit-calendar-picker-indicator {
   width: 90px;
 }
 
-.input-date-inline {
+/* Date inputs report a wide intrinsic width on mobile, so they need to be
+   allowed to shrink (flex-shrink + min-width) rather than overflow. */
+.input-inline {
   width: auto;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
 }
 
 button {
@@ -264,11 +272,66 @@ button {
   color: var(--warn);
 }
 
-/* ---------- Session log ---------- */
-.log-range {
+/* A small labelled control sitting beside a section heading. */
+.inline-control {
   font-size: 12px;
   color: var(--dim);
 }
+
+/* ---------- Filter popup ---------- */
+.filter {
+  position: relative;
+}
+
+.filter-toggle {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.filter-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  min-width: 160px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 45%);
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filter-option:hover {
+  background: var(--bg);
+}
+
+/* Overrides the full-width rule that applies to inputs generally. */
+.filter-option input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.filter-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+/* ---------- Session log ---------- */
 
 .day-label {
   margin-top: 10px;

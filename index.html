@@ -37,7 +37,22 @@
 
       <div id="app" hidden>
         <section>
-          <h2>TASKS</h2>
+          <div class="row section-header row-spaced">
+            <h2>TASKS</h2>
+            <div class="row inline-control mono">
+              <span>show</span>
+              <div class="filter">
+                <button
+                  class="btn-muted filter-toggle"
+                  id="status-filter-btn"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >All</button>
+                <div class="filter-panel" id="status-filter-panel" hidden></div>
+              </div>
+            </div>
+          </div>
           <div class="row row-spaced">
             <input class="grow" id="new-task-input" placeholder="New task name" />
             <button class="btn-accent" id="add-task-btn">+ Add</button>
@@ -58,7 +73,7 @@
           <div class="row">
             <span class="empty inline">or log manually:</span>
             <input class="input-minutes" id="manual-minutes" type="number" min="1" step="1" placeholder="Minutes" />
-            <input id="manual-date" type="date" />
+            <input class="input-inline" id="manual-date" type="date" />
             <button class="btn-accent" id="manual-log-btn">Log</button>
           </div>
         </section>
@@ -66,9 +81,9 @@
         <section>
           <div class="row section-header row-spaced">
             <h2>SESSION LOG</h2>
-            <div class="row log-range mono">
+            <div class="row inline-control mono">
               <span>from</span>
-              <input class="input-date-inline" id="from-date" type="date" />
+              <input class="input-inline" id="from-date" type="date" />
               <span>to today</span>
             </div>
           </div>
