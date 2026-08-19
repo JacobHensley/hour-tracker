@@ -6,11 +6,20 @@ import { TASK_STATUSES } from './billing.js';
 const TIMER_STORAGE_KEY = 'hour-tracker-active-timer';
 const FILTER_STORAGE_KEY = 'hour-tracker-status-filter';
 const BILLABLE_STORAGE_KEY = 'hour-tracker-show-billable';
+const SIGNED_OUT_KEY = 'hour-tracker-signed-out';
 
 /** Popup visibility flags — at most one popup is open at a time. */
-const POPUP_FLAGS = ['filterOpen', 'trackMenuOpen', 'stateMenuOpen', 'addMenuOpen', 'editTaskMenu'];
+const POPUP_FLAGS = [
+  'filterOpen',
+  'trackMenuOpen',
+  'stateMenuOpen',
+  'addMenuOpen',
+  'editTaskMenu',
+  'accountMenuOpen'
+];
 
 export const ui = {
+  screen: 'app', // 'app' | 'settings' — the full-frame surface over the app
   bucket: 'unbilled', // 'unbilled' or an invoice id — the only navigation state
   selected: [], // task ids ticked for billing
   statusFilter: loadStatusFilter(), // statuses visible in the task list
@@ -23,12 +32,19 @@ export const ui = {
   confirmDeleteTask: null, // task id whose Delete button is armed
   newTaskOpen: false, // inline new-task creator
   toast: '',
+  // Settings — Account & data
+  importFileName: '', // chosen backup file, '' when none
+  importFileSize: 0,
+  confirmDeleteAll: false, // Delete-all armed, same pattern as task delete
+  busy: '', // label of an in-flight backup/restore/delete, '' when idle
+  signInConflict: '', // email whose Google account already holds its own data
   // Popups
   filterOpen: false,
   trackMenuOpen: false,
   stateMenuOpen: false,
   addMenuOpen: false,
   editTaskMenu: false,
+  accountMenuOpen: false,
   statusMenuFor: null // task id whose status menu is open
 };
 
@@ -111,4 +127,32 @@ function loadShowBillable() {
 
 export function saveShowBillable(on) {
   localStorage.setItem(BILLABLE_STORAGE_KEY, String(on));
+}
+
+// ---------- Sign-out persistence ----------
+
+/**
+ * Signing out is explicit and has to survive a reload: without this flag the
+ * app would sign the user straight back in anonymously on the next load and
+ * the sign-in screen would be unreachable.
+ */
+export function isSignedOut() {
+  return localStorage.getItem(SIGNED_OUT_KEY) === 'true';
+}
+
+export function setSignedOut(on) {
+  if (on) localStorage.setItem(SIGNED_OUT_KEY, 'true');
+  else localStorage.removeItem(SIGNED_OUT_KEY);
+}
+
+/** Drops this device's local state. Used after Delete all data, so a wiped
+ *  account doesn't come back with a timer running against a deleted task. */
+export function clearLocalState() {
+  for (const key of [TIMER_STORAGE_KEY, FILTER_STORAGE_KEY, BILLABLE_STORAGE_KEY]) {
+    localStorage.removeItem(key);
+  }
+  ui.statusFilter = [...TASK_STATUSES];
+  ui.showBillable = true;
+  ui.selected = [];
+  ui.bucket = 'unbilled';
 }

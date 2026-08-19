@@ -2,8 +2,8 @@
 // same origin as the app, so it opens the same data automatically. There is
 // no login step here; see connect() in firebase.js.
 
-import { connect, exportAll, importAll, currentCounts } from './firebase.js';
-import { toIsoDate } from './billing.js';
+import { connect, exportAll, importAll, currentCounts } from '../firebase.js';
+import { toIsoDate } from '../billing.js';
 
 const $ = (id) => document.getElementById(id);
 

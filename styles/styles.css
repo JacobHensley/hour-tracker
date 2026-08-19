@@ -42,6 +42,11 @@
   --track-idle: #33333a;
   --border: #3a3a42;
 
+  /* Sign-in — the Google button inverts the page palette */
+  --invert-bg: #f4f4f6;
+  --invert-ink: #151517;
+  --keyline: #ffffff; /* the white area Google's mark must sit on */
+
   --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.55);
 }
 
@@ -121,6 +126,7 @@ input::-webkit-inner-spin-button {
 }
 
 .app {
+  position: relative; /* anchors the full-frame settings surface */
   display: flex;
   flex-direction: column;
   max-width: 430px;
@@ -723,6 +729,10 @@ input::-webkit-inner-spin-button {
   border-radius: 20px;
   background: var(--surface);
 }
+/* Unbilled cards open their editor on tap; invoice cards carry no action. */
+.task-card[data-action] {
+  cursor: pointer;
+}
 .task-card.selected {
   background: var(--selected);
 }
@@ -780,6 +790,13 @@ input::-webkit-inner-spin-button {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.delete-hint {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
 }
 
 /* Armed by the first Delete tap; the second tap commits. */
@@ -901,6 +918,11 @@ input::-webkit-inner-spin-button {
 }
 
 /* ---------- Session log ---------- */
+
+.log-head {
+  align-items: baseline;
+  margin-bottom: 10px;
+}
 
 .log-section {
   margin-top: 22px;
@@ -1221,4 +1243,406 @@ input::-webkit-inner-spin-button {
   background: var(--accent);
   color: var(--accent-ink);
   font-size: 13px;
+}
+
+/* ---------- Account avatar + menu ---------- */
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.account-slot {
+  flex: none;
+  display: flex;
+}
+
+.account-pop {
+  flex: none;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.avatar-lg {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.avatar-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-menu {
+  top: 40px;
+  right: 0;
+  width: 232px;
+  z-index: 40;
+}
+
+.account-identity {
+  padding: 7px 9px 9px;
+}
+
+.account-email {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.account-provider {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--faint);
+}
+
+.account-sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px 9px;
+  border-bottom: 1px solid var(--div-pop);
+}
+
+/* Mint while connected, muted while offline — the header's old green dot. */
+.sync-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--success);
+}
+.sync-dot.off {
+  background: var(--accent-muted);
+}
+
+.sync-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.sync-when {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--faint);
+}
+
+.account-rows {
+  padding-top: 6px;
+}
+
+.account-row {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* ---------- Full-frame surface (Settings) ---------- */
+
+.screen {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--page);
+}
+
+.screen-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 18px 14px;
+  padding-top: calc(18px + env(safe-area-inset-top));
+}
+
+/* Pulled left so the glyph, not the button box, lines up with the title. */
+.back-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: -6px;
+  border-radius: 12px;
+  background: var(--chip);
+  color: var(--text-3);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.screen-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.screen-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 18px 22px;
+  padding-bottom: calc(22px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+.screen-body::-webkit-scrollbar {
+  width: 0;
+}
+
+/* ---------- Settings — Account & data ---------- */
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.account-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-card-email {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-card-sync {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.settings-caption {
+  display: block;
+  margin: 22px 0 10px;
+}
+
+.settings-card {
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-row-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.settings-row-desc {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.settings-sub {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--div-card);
+}
+
+.btn-soft-sm {
+  flex: none;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.import-btn {
+  margin-top: 12px;
+}
+
+.import-chosen {
+  margin-top: 12px;
+}
+
+.import-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--input);
+}
+
+.import-file-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-file-size {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.danger-line {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.danger-line.spaced {
+  margin-top: 12px;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.toast.settings-toast {
+  margin: 18px 0 0;
+}
+
+/* ---------- Sign-in screen ---------- */
+
+.signin {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 430px;
+  margin: 0 auto;
+  height: 100dvh;
+  padding: 0 30px;
+  background: var(--page);
+}
+
+.signin-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.signin-copy {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-dim);
+  text-wrap: pretty;
+}
+
+/* Google's guidelines: light button, the unmodified mark on a white area. */
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 28px;
+  padding: 15px;
+  border-radius: 16px;
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.google-keyline {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--keyline);
+}
+
+.google-mark {
+  display: block;
+}
+
+.signin-note {
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--faint);
+  text-wrap: pretty;
+}
+
+.signin-skip {
+  margin-top: 18px;
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.signin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.toast.signin-toast {
+  margin: 18px 0 0;
 }

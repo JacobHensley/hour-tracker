@@ -1,18 +1,19 @@
-const CACHE = 'hour-tracker-v11';
+const CACHE = 'hour-tracker-v13';
 const ASSETS = [
   './',
   './index.html',
-  './backup.html',
-  './styles.css',
-  './app.js',
-  './backup.js',
-  './billing.js',
-  './state.js',
-  './render.js',
-  './firebase.js',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  './styles/styles.css',
+  './src/app.js',
+  './src/billing.js',
+  './src/state.js',
+  './src/render.js',
+  './src/settings.js',
+  './src/firebase.js',
+  './src/backup/backup.html',
+  './src/backup/backup.js',
+  './assets/icon-192.png',
+  './assets/icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {

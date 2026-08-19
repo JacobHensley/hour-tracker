@@ -6,6 +6,11 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth,
   signInAnonymously,
+  signInWithPopup,
+  signInWithCredential,
+  linkWithPopup,
+  signOut,
+  GoogleAuthProvider,
   onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
@@ -133,7 +138,18 @@ export const ops = {
     return batch.commit();
   },
 
-  saveSettings: (patch) => setDoc(settingsRef(), patch, { merge: true })
+  saveSettings: (patch) => setDoc(settingsRef(), patch, { merge: true }),
+
+  /** Deletes every task, session and invoice and resets billing settings.
+   *  Chunked so an account with thousands of sessions still clears. */
+  async deleteAllData() {
+    const snaps = await Promise.all([getDocs(tasksCol()), getDocs(sessionsCol()), getDocs(invoicesCol())]);
+    const counts = { tasks: snaps[0].size, sessions: snaps[1].size, invoices: snaps[2].size };
+    const refs = snaps.flatMap((snap) => snap.docs.map((d) => d.ref));
+    await commitChunked(refs, (batch, ref) => batch.delete(ref));
+    await setDoc(settingsRef(), { ...DEFAULT_SETTINGS });
+    return counts;
+  }
 };
 
 // ---------- Backup / restore ----------
@@ -141,9 +157,10 @@ export const ops = {
 /** Current backup format. Bump if the shape ever changes incompatibly. */
 export const BACKUP_VERSION = 1;
 
-/** Connects using this browser's existing automatic anonymous identity and
- *  resolves with its id. No credentials and no user-facing login: it is the
- *  same silent connection the app itself makes on every load. */
+/** Connects using whichever identity this browser already holds — the Google
+ *  account if one is signed in, otherwise the automatic anonymous one — and
+ *  resolves with its id. Signing in anonymously *replaces* the current user,
+ *  so it only happens when there is genuinely nobody signed in. */
 export function connect() {
   return new Promise((resolve, reject) => {
     onAuthStateChanged(
@@ -155,7 +172,7 @@ export function connect() {
       },
       reject
     );
-    signInAnonymously(auth).catch(reject);
+    if (!auth.currentUser) signInAnonymously(auth).catch(reject);
   });
 }
 
@@ -189,6 +206,9 @@ function validateBackup(backup) {
   const lists = data && [data.tasks, data.sessions, data.invoices];
   if (!data || !lists.every(Array.isArray)) {
     throw new Error('That file is not an Hour Tracker backup.');
+  }
+  if (data.settings != null && typeof data.settings !== 'object') {
+    throw new Error('That backup\u2019s settings are not readable.');
   }
   if (backup.version > BACKUP_VERSION) {
     throw new Error(`Backup is version ${backup.version}; this app reads up to ${BACKUP_VERSION}.`);
@@ -242,17 +262,143 @@ export async function currentCounts() {
   return { tasks: tasks.size, sessions: sessions.size, invoices: invoices.size };
 }
 
-/**
- * Signs in anonymously and live-syncs the user's data. `onData` receives
- * partial updates like `{ tasks }` / `{ sessions }` / `{ invoices }` /
- * `{ settings }` as each snapshot arrives.
- */
-export function startFirebase({ onData, onError, onReady, onAuthFailed }) {
-  onAuthStateChanged(auth, (user) => {
-    if (!user) return;
-    userId = user.uid;
+/** Builds a backup from what the app already has in memory, so Export costs
+ *  no extra reads. Same shape `importAll` reads and `backup.html` writes. */
+export function makeBackup({ tasks, sessions, invoices, settings }) {
+  return {
+    app: 'hour-tracker',
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    dataId: userId,
+    data: {
+      tasks: tasks.map((row) => ({ ...row })),
+      sessions: sessions.map((row) => ({ ...row })),
+      invoices: invoices.map((row) => ({ ...row })),
+      settings: { ...settings }
+    }
+  };
+}
 
-    onSnapshot(
+// ---------- Accounts ----------
+
+/** The subset of the Firebase user the UI renders. */
+function accountOf(user) {
+  return {
+    uid: user.uid,
+    email: user.email || '',
+    displayName: user.displayName || '',
+    photoURL: user.photoURL || '',
+    anonymous: user.isAnonymous
+  };
+}
+
+/**
+ * Attaches Google to the session. Existing users are anonymous and their data
+ * lives under `users/{anonymous uid}`, so the first sign-in *links* rather
+ * than signing in fresh: the uid is preserved and nothing has to move.
+ *
+ * Returns `{ status: 'conflict', credential, email }` when that Google account
+ * already owns a `users/{uid}` tree of its own — the caller decides what to do
+ * with the anonymous data before switching, rather than discarding it here.
+ */
+export async function signInWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  const current = auth.currentUser;
+
+  if (current && current.isAnonymous) {
+    try {
+      const result = await linkWithPopup(current, provider);
+      return { status: 'linked', account: accountOf(result.user) };
+    } catch (error) {
+      if (error.code !== 'auth/credential-already-in-use') throw error;
+      return {
+        status: 'conflict',
+        credential: GoogleAuthProvider.credentialFromError(error),
+        email: (error.customData && error.customData.email) || ''
+      };
+    }
+  }
+
+  const result = await signInWithPopup(auth, provider);
+  return { status: 'signed-in', account: accountOf(result.user) };
+}
+
+/** Completes the collision path: switches to the Google account's own data. */
+export async function useCredential(credential) {
+  const result = await signInWithCredential(auth, credential);
+  return accountOf(result.user);
+}
+
+/** Signs in without an account — the state every existing user is already in. */
+export function signInAnonymous() {
+  return signInAnonymously(auth);
+}
+
+export function signOutUser() {
+  return signOut(auth);
+}
+
+// ---------- Live subscriptions ----------
+
+let unsubscribers = [];
+
+function stopSubscriptions() {
+  for (const off of unsubscribers) off();
+  unsubscribers = [];
+}
+
+/**
+ * Snapshot metadata is the only honest source for "is this saved yet": a doc
+ * with `hasPendingWrites` is a local edit Firestore has not acknowledged.
+ * Counting them per collection gives the account menu's queued-changes number.
+ */
+const pendingByName = new Map();
+let lastSyncedAt = 0;
+
+function syncState() {
+  let pending = 0;
+  for (const count of pendingByName.values()) pending += count;
+  return { online: navigator.onLine, pending, lastSyncedAt };
+}
+
+/**
+ * Signs the user in and live-syncs their data. `onData` receives partial
+ * updates like `{ tasks }` as each snapshot arrives; `onAccount` fires on
+ * every auth change (with null when signed out); `onSync` tracks whether
+ * those writes have actually landed.
+ *
+ * `autoSignIn()` decides whether a signed-out session silently becomes an
+ * anonymous one — it stays false after an explicit Sign out, which is what
+ * keeps the sign-in screen reachable.
+ */
+export function startFirebase({ onData, onError, onReady, onAuthFailed, onAccount, onSync, autoSignIn }) {
+  const emitSync = () => onSync(syncState());
+  window.addEventListener('online', emitSync);
+  window.addEventListener('offline', emitSync);
+
+  /** Records one snapshot's pending-write count and freshness. */
+  function note(name, snap) {
+    pendingByName.set(name, snap.docs ? snap.docs.filter((d) => d.metadata.hasPendingWrites).length : 0);
+    if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites) lastSyncedAt = Date.now();
+    emitSync();
+  }
+
+  function subscribe() {
+    const watch = (name, ref, handler, label) =>
+      unsubscribers.push(
+        onSnapshot(
+          ref,
+          { includeMetadataChanges: true },
+          (snap) => {
+            note(name, snap);
+            handler(snap);
+          },
+          (error) => onError(label, error)
+        )
+      );
+
+    watch(
+      'tasks',
       tasksCol(),
       (snap) => {
         const tasks = snap.docs
@@ -260,10 +406,11 @@ export function startFirebase({ onData, onError, onReady, onAuthFailed }) {
           .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
         onData({ tasks });
       },
-      (error) => onError('Task sync error', error)
+      'Task sync error'
     );
 
-    onSnapshot(
+    watch(
+      'sessions',
       sessionsCol(),
       (snap) => {
         // Newest day first; within a day, most recently created first.
@@ -275,10 +422,11 @@ export function startFirebase({ onData, onError, onReady, onAuthFailed }) {
           });
         onData({ sessions });
       },
-      (error) => onError('Session sync error', error)
+      'Session sync error'
     );
 
-    onSnapshot(
+    watch(
+      'invoices',
       invoicesCol(),
       (snap) => {
         const invoices = snap.docs
@@ -286,17 +434,37 @@ export function startFirebase({ onData, onError, onReady, onAuthFailed }) {
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         onData({ invoices });
       },
-      (error) => onError('Invoice sync error', error)
+      'Invoice sync error'
     );
 
-    onSnapshot(
+    watch(
+      'settings',
       settingsRef(),
       (snap) => onData({ settings: { ...DEFAULT_SETTINGS, ...(snap.data() || {}) } }),
-      (error) => onError('Settings sync error', error)
+      'Settings sync error'
     );
+  }
 
+  onAuthStateChanged(auth, (user) => {
+    // Sign-out and account switches both land here; drop the old account's
+    // listeners before touching userId so no snapshot arrives for the wrong uid.
+    stopSubscriptions();
+    pendingByName.clear();
+    lastSyncedAt = 0;
+
+    if (!user) {
+      userId = null;
+      onAccount(null);
+      if (autoSignIn()) signInAnonymously(auth).catch(onAuthFailed);
+      return;
+    }
+
+    userId = user.uid;
+    onAccount(accountOf(user));
+    subscribe();
+    emitSync();
     onReady();
   });
 
-  signInAnonymously(auth).catch((error) => onAuthFailed(error));
+  if (autoSignIn() && !auth.currentUser) signInAnonymously(auth).catch(onAuthFailed);
 }

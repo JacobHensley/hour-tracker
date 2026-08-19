@@ -118,3 +118,25 @@ export function ruleAmount(rawMinutes, settings) {
 export function timerElapsedMs(timer, now) {
   return Math.max(0, (timer.pausedAt || now) - timer.startedAt - timer.pausedTotal);
 }
+
+// ---------- Relative time ----------
+
+/** `just now` / `4m ago` / `2h ago` / `3d ago`, for the account sync line. */
+export function relativeTime(then, now = Date.now()) {
+  if (!then) return '';
+  const seconds = Math.max(0, Math.round((now - then) / 1000));
+  if (seconds < 45) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+/** `20480` → `20 KB`. Sizes shown on the chosen backup file. */
+export function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

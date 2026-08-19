@@ -6,7 +6,7 @@
     <title>Hours</title>
 
     <link rel="manifest" href="manifest.json" />
-    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
     <meta name="theme-color" content="#151517" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -19,17 +19,19 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     />
 
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles/styles.css" />
   </head>
 
   <body>
     <div class="loading" id="loading">Connecting…</div>
 
+    <div class="signin" id="signin-screen" hidden></div>
+
     <div class="app" id="app" hidden>
       <header class="top">
         <div class="title-row">
           <span class="title">Hours</span>
-          <span class="today" id="today-label"></span>
+          <span class="account-slot" id="account-slot"></span>
         </div>
         <div class="chips" id="chip-rail"></div>
       </header>
@@ -38,8 +40,11 @@
 
       <div class="bottom-slot" id="bottom-slot"></div>
       <div class="bottom-spacer"></div>
+
+      <!-- Full-frame surface over the app; the app keeps its state beneath. -->
+      <div class="screen" id="settings-screen" hidden></div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script type="module" src="src/app.js"></script>
   </body>
 </html>

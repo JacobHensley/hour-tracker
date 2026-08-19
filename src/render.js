@@ -18,6 +18,7 @@ import {
   shortDate,
   longDate
 } from './billing.js';
+import { accountButton, settingsScreen } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -44,11 +45,17 @@ export function render(data, ui, timer) {
   // expiring toast arriving mid-edit would silently revert what you typed.
   const typing = captureFocus();
 
-  $('today-label').textContent = longDate(todayIso());
+  $('account-slot').innerHTML = accountButton(data, ui);
   $('chip-rail').innerHTML = chipsHtml(d, ui);
   $('scroll-body').innerHTML =
     ui.bucket === 'unbilled' ? unbilledView(d, ui, timer) : invoiceView(d, ui);
   $('bottom-slot').innerHTML = bottomSlot(d, ui, timer);
+
+  // The settings surface sits over the app, which keeps its scroll position,
+  // selection and running timer underneath.
+  const settings = $('settings-screen');
+  settings.hidden = ui.screen !== 'settings';
+  settings.innerHTML = settings.hidden ? '' : settingsScreen(data, ui);
 
   restoreFocus(typing);
 }
@@ -168,7 +175,7 @@ function timerCard(d, ui, timer) {
     <div class="timer-caption${running ? ' live' : ''}">${caption}</div>
     <div class="clock${running ? ' live' : ''}" data-clock>${formatClock(Math.round(elapsed / 1000))}</div>
     <span class="pop block-pop" data-popup>
-      <button class="task-select${timer ? ' locked' : ''}" data-action="toggle-track-menu">${esc(activeTask ? activeTask.name : 'Pick a task')}<span class="select-caret">⌄</span></button>
+      <button class="task-select${timer ? ' locked' : ''}" data-action="toggle-track-menu">${esc(activeTask ? activeTask.name : 'Pick a task')}<span class="select-caret">▾</span></button>
       <div class="menu full-menu"${menuOpen ? '' : ' hidden'}>${choices}</div>
     </span>
     ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}
@@ -285,36 +292,44 @@ function taskCard(t, d, ui) {
     </button>`
   ).join('');
 
+  // The card itself opens the editor (closest('[data-action]') still resolves
+  // the checkbox, status pill, Delete and Save first), so the name is inert.
   const nameBlock = editing
     ? `<input id="edit-task-name" class="input grow small task-name-input" value="${esc(t.name)}" maxlength="120">`
-    : `<button class="task-name" data-action="open-task-editor" data-id="${t.id}">${esc(t.name)}</button>`;
+    : `<div class="task-name">${esc(t.name)}</div>`;
 
   const sessionCount = d.sessions.filter((s) => s.taskId === t.id).length;
   const confirming = ui.confirmDeleteTask === t.id;
+  // Shown only once Delete is armed, so nothing sits between the status row
+  // and the buttons until the warning is actually relevant.
+  const deleteHint = confirming
+    ? `<div class="delete-hint">${
+        sessionCount
+          ? `Also deletes ${sessionCount} logged session${sessionCount === 1 ? '' : 's'}.`
+          : 'No logged sessions to lose.'
+      }</div>`
+    : '';
+
   const editor = editing
     ? `
     <div class="task-editor">
+      ${deleteHint}
       <div class="task-edit-row">
         <button class="btn-danger-sm${confirming ? ' armed' : ''}" data-action="delete-task" data-id="${t.id}">${confirming ? 'Confirm delete' : 'Delete'}</button>
         <button class="btn-primary-sm" data-action="save-task" data-id="${t.id}">Save</button>
       </div>
-      <div class="hint">${
-        sessionCount
-          ? `Deleting also removes its ${sessionCount} logged session${sessionCount === 1 ? '' : 's'}.`
-          : 'This task has no logged sessions.'
-      }</div>
     </div>`
     : '';
 
   return `
-  <li class="task-card${selected ? ' selected' : ''}${editing ? ' editing' : ''}">
+  <li class="task-card${selected ? ' selected' : ''}${editing ? ' editing' : ''}" data-action="open-task-editor" data-id="${t.id}">
     <div class="task-row">
       <button class="checkbox task-check${selected ? ' on' : ''}" data-action="select-task" data-id="${t.id}">${selected ? '✓' : ''}</button>
       <div class="task-main">
         ${nameBlock}
         <div class="task-bottom">
           <span class="pop" data-popup>
-            <button class="pill pill-btn st-${STATUS_CLASS[t.status]}" data-action="open-status-menu" data-id="${t.id}">${t.status}<span class="pill-caret">⌄</span></button>
+            <button class="pill pill-btn st-${STATUS_CLASS[t.status]}" data-action="open-status-menu" data-id="${t.id}">${t.status}<span class="pill-caret">▾</span></button>
             <div class="menu status-menu"${ui.statusMenuFor === t.id ? '' : ' hidden'}>${statusRows}</div>
           </span>
           <span class="task-figures">
@@ -371,7 +386,13 @@ function sessionLog(d, ui) {
       .join('');
   }
 
-  return `<div class="log-section"><div class="caption block-caption">SESSION LOG</div>${body}</div>`;
+  return `<div class="log-section">
+    <div class="row-between log-head">
+      <span class="caption">SESSION LOG</span>
+      <span class="today">${esc(longDate(todayIso()))}</span>
+    </div>
+    ${body}
+  </div>`;
 }
 
 function sessionRow(session, d, ui) {
@@ -391,7 +412,7 @@ function sessionRow(session, d, ui) {
     editor = `
     <div class="session-editor">
       <span class="pop block-pop" data-popup>
-        <button class="move-btn" data-action="toggle-session-task-menu">Move to task<span class="move-caret">⌄</span></button>
+        <button class="move-btn" data-action="toggle-session-task-menu">Move to task<span class="move-caret">▾</span></button>
         <div class="menu full-menu near"${ui.editTaskMenu ? '' : ' hidden'}>${choices}</div>
       </span>
       <div class="session-edit-row">
@@ -448,7 +469,7 @@ function invoiceView(d, ui) {
         <button class="edit-chip" data-action="toggle-inv-edit">Edit</button>
       </span>
       <span class="pop" data-popup>
-        <button class="state-pill state-${state.toLowerCase()}" data-action="open-state-menu">${state}<span class="pill-caret">⌄</span></button>
+        <button class="state-pill state-${state.toLowerCase()}" data-action="open-state-menu">${state}<span class="pill-caret">▾</span></button>
         <div class="menu state-menu"${ui.stateMenuOpen ? '' : ' hidden'}>${stateRows}</div>
       </span>
     </div>

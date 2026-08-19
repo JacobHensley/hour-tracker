@@ -3,9 +3,31 @@
 // nothing here holds references into the rebuilt DOM.
 
 import { todayIso, formatMinutes, timerElapsedMs, formatClock, STATUS_ORDER } from './billing.js';
-import { ops, createId, startFirebase, DEFAULT_SETTINGS } from './firebase.js';
-import { ui, closePopups, getTimer, setTimer, saveStatusFilter, saveShowBillable } from './state.js';
+import {
+  ops,
+  createId,
+  startFirebase,
+  DEFAULT_SETTINGS,
+  makeBackup,
+  importAll,
+  signInWithGoogle,
+  useCredential,
+  signInAnonymous,
+  signOutUser
+} from './firebase.js';
+import {
+  ui,
+  closePopups,
+  getTimer,
+  setTimer,
+  saveStatusFilter,
+  saveShowBillable,
+  isSignedOut,
+  setSignedOut,
+  clearLocalState
+} from './state.js';
 import { render } from './render.js';
+import { signInScreen } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -24,13 +46,39 @@ const data = {
   tasks: [],
   sessions: [],
   invoices: [],
-  settings: { ...DEFAULT_SETTINGS }
+  settings: { ...DEFAULT_SETTINGS },
+  account: null, // { uid, email, photoURL, anonymous } or null when signed out
+  sync: null // { online, pending, lastSyncedAt }
 };
 
-let ready = false;
+/** Which full-frame surface is live. `ui.screen` layers Settings on top of
+ *  'ready'; this is the coarser question of whether there is an app at all. */
+let phase = 'connecting'; // 'connecting' | 'signin' | 'ready'
+
+/** Set when a signed-in user asks for the sign-in screen anyway — an
+ *  anonymous user linking a Google account, who must not be signed out first
+ *  or the link (and their data) is lost. */
+let wantSignIn = false;
+
+/** The Google credential held back by an `auth/credential-already-in-use`
+ *  collision, until the user decides whether to abandon the local data. */
+let pendingCredential = null;
+
+/** The chosen backup File. Kept out of `ui` because render() rebuilds the
+ *  file input on every pass, which would drop it. */
+let importFile = null;
 
 function rerender() {
-  if (ready) render(data, ui, getTimer());
+  if (phase === 'signin') $('signin-screen').innerHTML = signInScreen(ui);
+  if (phase === 'ready') render(data, ui, getTimer());
+}
+
+/** Switches which surface is on screen and repaints it. */
+function paint() {
+  $('loading').hidden = phase !== 'connecting';
+  $('signin-screen').hidden = phase !== 'signin';
+  $('app').hidden = phase !== 'ready';
+  rerender();
 }
 
 let toastTimer = null;
@@ -384,25 +432,255 @@ const actions = {
   'toggle-sessions'() {
     ui.sessionsOpen = !ui.sessionsOpen;
     rerender();
+  },
+
+  // --- Account menu ---
+  'toggle-account-menu'() {
+    togglePopup('accountMenuOpen');
+    rerender();
+  },
+  'open-settings'() {
+    closePopups();
+    ui.screen = 'settings';
+    resetSettingsUi();
+    rerender();
+  },
+  'close-settings'() {
+    ui.screen = 'app';
+    resetSettingsUi();
+    rerender();
+  },
+
+  // --- Sign in / out ---
+  'go-signin'() {
+    // Deliberately does not sign out: an anonymous user's data is preserved
+    // by *linking* Google to the account they already have.
+    closePopups();
+    wantSignIn = true;
+    ui.screen = 'app';
+    phase = 'signin';
+    paint();
+  },
+  'cancel-signin'() {
+    pendingCredential = null;
+    ui.signInConflict = '';
+    if (data.account) {
+      wantSignIn = false;
+      phase = 'ready';
+    }
+    paint();
+  },
+  'continue-local'() {
+    setSignedOut(false);
+    wantSignIn = false;
+    ui.signInConflict = '';
+    pendingCredential = null;
+    if (data.account) {
+      phase = 'ready';
+      return paint();
+    }
+    phase = 'connecting';
+    paint();
+    signInAnonymous().catch((error) => {
+      phase = 'signin';
+      paint();
+      flash('Could not connect: ' + error.message);
+    });
+  },
+  async 'sign-in-google'() {
+    ui.busy = 'signin';
+    rerender();
+    // Cleared up front for the same reason as confirm-signin: a fresh popup
+    // sign-in fires onAuthStateChanged before this function resumes.
+    const wasWanted = wantSignIn;
+    wantSignIn = false;
+    try {
+      const result = await signInWithGoogle();
+      ui.busy = '';
+      if (result.status === 'conflict') {
+        // That Google account owns its own users/{uid} tree. Switching to it
+        // strands the anonymous data, so offer Export before committing.
+        wantSignIn = wasWanted;
+        pendingCredential = result.credential;
+        ui.signInConflict = result.email || 'That Google account';
+        return rerender();
+      }
+      setSignedOut(false);
+      // A link keeps the same uid, so onAuthStateChanged never fires for it —
+      // the account has to be applied here. A fresh sign-in fires too, and
+      // sets the same values again harmlessly.
+      data.account = result.account;
+      phase = 'ready';
+      paint();
+    } catch (error) {
+      ui.busy = '';
+      wantSignIn = wasWanted;
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        return rerender();
+      }
+      flash('Sign-in failed: ' + error.message);
+    }
+  },
+  async 'confirm-signin'() {
+    if (!pendingCredential) return;
+    const credential = pendingCredential;
+    ui.busy = 'signin';
+    rerender();
+    // These are cleared *before* the await: onAuthStateChanged can fire while
+    // it is in flight, and onReady() bails out while wantSignIn is still set,
+    // which would strand the app on the sign-in screen.
+    pendingCredential = null;
+    ui.signInConflict = '';
+    setSignedOut(false);
+    wantSignIn = false;
+    try {
+      // onAuthStateChanged resubscribes under the new uid and calls onReady.
+      await useCredential(credential);
+      ui.busy = '';
+    } catch (error) {
+      pendingCredential = credential;
+      wantSignIn = true;
+      ui.busy = '';
+      flash('Sign-in failed: ' + error.message);
+      rerender();
+    }
+  },
+  async 'sign-out'() {
+    closePopups();
+    ui.screen = 'app';
+    resetSettingsUi();
+    setSignedOut(true);
+    try {
+      await signOutUser();
+    } catch (error) {
+      setSignedOut(false);
+      flash('Could not sign out: ' + error.message);
+    }
+  },
+
+  // --- Backups ---
+  'export-backup'() {
+    try {
+      const name = `hours-backup-${todayIso()}.json`;
+      downloadJson(makeBackup(data), name);
+      flash(`Saved ${name}`);
+    } catch (error) {
+      flash('Export failed: ' + error.message);
+    }
+  },
+  'pick-import-file'() {
+    $('import-file-input')?.click();
+  },
+  'cancel-import'() {
+    clearImport();
+    rerender();
+  },
+  async 'confirm-import'() {
+    if (!importFile) return;
+    ui.busy = 'import';
+    rerender();
+    try {
+      // Import replaces rather than merges — that is what this gate protects.
+      const written = await importAll(JSON.parse(await importFile.text()), { replace: true });
+      clearImport();
+      ui.busy = '';
+      rerender();
+      const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      flash(
+        `Backup restored — ${count(written.tasks, 'task')}, ${count(written.sessions, 'session')}, ` +
+          `${count(written.invoices, 'invoice')}.`
+      );
+    } catch (error) {
+      ui.busy = '';
+      rerender();
+      flash('Import failed: ' + error.message);
+    }
+  },
+  async 'delete-all'() {
+    // Same arming pattern as the task delete: first tap primes, second commits.
+    if (!ui.confirmDeleteAll) {
+      ui.confirmDeleteAll = true;
+      return rerender();
+    }
+    ui.confirmDeleteAll = false;
+    ui.busy = 'delete';
+    rerender();
+    try {
+      await ops.deleteAllData();
+      setTimer(null);
+      clearLocalState();
+      ui.busy = '';
+      rerender();
+      flash('All data deleted.');
+    } catch (error) {
+      ui.busy = '';
+      rerender();
+      flash('Delete failed: ' + error.message);
+    }
   }
 };
 
+// ---------- Settings helpers ----------
+
+/** Drops anything half-finished on the settings screen. */
+function resetSettingsUi() {
+  ui.confirmDeleteAll = false;
+  clearImport();
+}
+
+function clearImport() {
+  importFile = null;
+  ui.importFileName = '';
+  ui.importFileSize = 0;
+}
+
+/** Hands the backup to the browser as a download. */
+function downloadJson(backup, filename) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  // Revoking immediately can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
 // ---------- Event wiring ----------
 
-$('app').addEventListener('click', (event) => {
+/** One delegated click handler for every surface. */
+function onActionClick(event) {
+  // The task card as a whole opens its editor, so a tap into the rename field
+  // would close it. Inputs are driven by change/keydown, so nothing regresses.
+  if (event.target.tagName === 'INPUT') return;
+
   const el = event.target.closest('[data-action]');
   if (!el) return;
   // Any other tap disarms a primed delete, so it can't fire later by accident.
   if (ui.confirmDeleteTask && el.dataset.action !== 'delete-task') {
     ui.confirmDeleteTask = null;
   }
+  if (ui.confirmDeleteAll && el.dataset.action !== 'delete-all') {
+    ui.confirmDeleteAll = false;
+  }
   const action = actions[el.dataset.action];
   if (action) action(el);
-});
+}
+
+$('app').addEventListener('click', onActionClick);
+$('signin-screen').addEventListener('click', onActionClick);
 
 // Billing settings commit on change (blur/Enter), not per keystroke, so
 // re-renders never steal focus mid-typing.
 $('app').addEventListener('change', (event) => {
+  if (event.target.id === 'import-file-input') {
+    const file = event.target.files[0];
+    if (!file) return;
+    importFile = file;
+    ui.importFileName = file.name;
+    ui.importFileSize = file.size;
+    return rerender();
+  }
+
   const key = event.target.dataset.setting;
   if (!key) return;
   const value = Number(event.target.value);
@@ -417,7 +695,11 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && closePopups()) rerender();
+  if (event.key === 'Escape') {
+    if (closePopups()) return rerender();
+    // With no popup open, Escape backs out of the settings surface.
+    if (ui.screen === 'settings') return actions['close-settings']();
+  }
   if (event.key !== 'Enter') return;
   if (event.target.id === 'new-task-name') createTask();
   if (event.target.id === 'edit-task-name') saveTask(ui.editTask);
@@ -437,6 +719,16 @@ setInterval(() => {
 
 // ---------- Startup ----------
 
+/** Empties the in-memory data so one account's rows never show under another. */
+function resetData() {
+  Object.assign(data, {
+    tasks: [],
+    sessions: [],
+    invoices: [],
+    settings: { ...DEFAULT_SETTINGS }
+  });
+}
+
 startFirebase({
   onData(patch) {
     Object.assign(data, patch);
@@ -446,9 +738,30 @@ startFirebase({
     flash(`${what}: ${error.message}`);
   },
   onReady() {
-    ready = true;
-    $('loading').hidden = true;
-    $('app').hidden = false;
+    if (wantSignIn) return; // the user asked for the sign-in screen; stay on it
+    phase = 'ready';
+    paint();
+  },
+  onAccount(account) {
+    if (account && data.account && account.uid !== data.account.uid) resetData();
+    data.account = account;
+
+    if (!account) {
+      // Signed out for real: drop the previous account's rows and offer the
+      // sign-in screen. Anything else means auto-anonymous sign-in is coming.
+      resetData();
+      if (isSignedOut()) {
+        setTimer(null);
+        ui.screen = 'app';
+        phase = 'signin';
+        paint();
+      }
+      return;
+    }
+    rerender();
+  },
+  onSync(sync) {
+    data.sync = sync;
     rerender();
   },
   onAuthFailed(error) {
@@ -456,9 +769,25 @@ startFirebase({
       'Could not connect: ' +
       error.message +
       ' — check that Anonymous auth is enabled in the Firebase console.';
-  }
+  },
+  autoSignIn: () => !isSignedOut()
 });
 
+// A signed-out reload has no auth callback to wait for.
+if (isSignedOut()) {
+  phase = 'signin';
+  paint();
+}
+
+// The account menu's sync line ages ("just now" → "4m ago"), so it needs a
+// repaint even when nothing else changes. Only while the menu is open.
+setInterval(() => {
+  if (ui.accountMenuOpen || ui.screen === 'settings') rerender();
+}, 30000);
+
+// `sw.js` resolves against the *document* (index.html at the root), not this
+// module — so it stays a bare filename even though app.js lives in src/. The
+// worker has to be served from the root to claim the whole origin as its scope.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
