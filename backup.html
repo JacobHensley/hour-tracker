@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hours — Backup &amp; Restore</title>
+    <meta name="theme-color" content="#151517" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    />
+    <link rel="stylesheet" href="styles.css" />
+
+    <style>
+      /* Utility-page layout. Colours come from styles.css tokens. */
+      .tool {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 24px 18px calc(40px + env(safe-area-inset-bottom));
+        background: var(--page);
+        min-height: 100dvh;
+      }
+      .tool h1 {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0 0 4px;
+      }
+      .tool .sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 20px;
+      }
+      .tool section {
+        background: var(--surface);
+        border-radius: 20px;
+        padding: 18px;
+        margin-bottom: 14px;
+      }
+      .tool h2 {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      .tool p {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-2);
+        margin: 0 0 12px;
+      }
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--div-list);
+        font-size: 13px;
+      }
+      .kv:last-child {
+        border-bottom: none;
+      }
+      .kv span:first-child {
+        color: var(--muted);
+      }
+      .kv span:last-child {
+        font-weight: 700;
+      }
+      .dataid {
+        margin-top: 10px;
+        font-size: 11px;
+        word-break: break-all;
+        color: var(--faint);
+      }
+      .btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .btn {
+        padding: 12px 18px;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 800;
+        background: var(--accent);
+        color: var(--accent-ink);
+      }
+      .btn.secondary {
+        background: var(--input);
+        color: var(--text);
+        font-weight: 700;
+      }
+      .btn.danger {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .btn.danger.armed {
+        background: var(--danger);
+        color: var(--accent-ink);
+      }
+      .btn[disabled] {
+        opacity: 0.45;
+        pointer-events: none;
+      }
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        margin-top: 12px;
+        padding: 12px;
+        border: none;
+        border-radius: 12px;
+        background: var(--input);
+        color: var(--text-2);
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        line-height: 1.45;
+        resize: vertical;
+        outline: none;
+      }
+      .mode {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 4px 0 14px;
+      }
+      .mode label {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 13px;
+        color: var(--text-2);
+        cursor: pointer;
+      }
+      /* styles.css strips appearance from every input for the app's own
+         fields; radios need it back or they render at zero size. */
+      .mode input[type='radio'] {
+        -webkit-appearance: radio;
+        appearance: auto;
+        flex: none;
+        width: 16px;
+        height: 16px;
+        margin-top: 2px;
+        accent-color: var(--accent);
+      }
+      .mode b {
+        color: var(--text);
+        font-weight: 700;
+      }
+      .mode small {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      input[type='file'] {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 12px;
+        width: 100%;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--input);
+        color: var(--accent-soft-text);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .status.bad {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+      .status.good {
+        background: var(--success-bg);
+        color: var(--success);
+      }
+      .back {
+        display: inline-block;
+        margin-top: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .warn {
+        font-size: 12px;
+        color: var(--faint);
+        margin-top: 10px;
+      }
+      .note {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--faint);
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="tool">
+      <h1>Backup &amp; Restore</h1>
+      <div class="sub">Save a copy of everything, or load one back.</div>
+
+      <section>
+        <h2>YOUR DATA</h2>
+        <div id="counts">
+          <div class="kv"><span>Status</span><span>Connecting…</span></div>
+        </div>
+        <div class="dataid" id="dataid"></div>
+        <p class="note">
+          There is no login here. This page opens your data the same silent way the app
+          already does — nothing to sign into, no password, no new account.
+        </p>
+      </section>
+
+      <section>
+        <h2>BACK UP</h2>
+        <p>
+          Downloads a JSON file with every task, session, invoice and your billing settings.
+          Keep it somewhere outside this browser.
+        </p>
+        <div class="btn-row">
+          <button class="btn" id="download-btn" disabled>Download backup</button>
+          <button class="btn secondary" id="show-btn" disabled>Show JSON</button>
+        </div>
+        <textarea id="json-out" placeholder="Backup JSON appears here for copy/paste." hidden></textarea>
+        <div id="export-status"></div>
+      </section>
+
+      <section>
+        <h2>RESTORE</h2>
+        <p>Choose a backup file, or paste its contents below.</p>
+        <input type="file" id="file-input" accept="application/json,.json" />
+        <textarea id="json-in" placeholder="…or paste backup JSON here."></textarea>
+
+        <div class="mode">
+          <label>
+            <input type="radio" name="mode" value="merge" checked />
+            <span><b>Merge</b><small>Adds and overwrites entries from the backup. Anything else is left alone.</small></span>
+          </label>
+          <label>
+            <input type="radio" name="mode" value="replace" />
+            <span><b>Replace</b><small>Deletes everything currently stored first, then loads the backup exactly as it was.</small></span>
+          </label>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn danger" id="restore-btn" disabled>Restore</button>
+        </div>
+        <div class="warn">
+          Replace downloads a safety copy of your current data before it deletes anything.
+        </div>
+        <div id="restore-status"></div>
+      </section>
+
+      <a class="back" href="index.html">← Back to Hours</a>
+    </div>
+
+    <script type="module" src="backup.js"></script>
+  </body>
+</html>

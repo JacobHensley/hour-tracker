@@ -1,0 +1,6 @@
+# Normalize every text file to LF, both in the repository and on checkout,
+# so line endings stay consistent regardless of each machine's core.autocrlf.
+* text=auto eol=lf
+
+# Binary assets must never be transformed.
+*.png binary

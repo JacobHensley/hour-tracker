@@ -2,12 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <title>Hour Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Hours</title>
 
     <link rel="manifest" href="manifest.json" />
     <link rel="apple-touch-icon" href="icon-192.png" />
-    <meta name="theme-color" content="#101418" />
+    <meta name="theme-color" content="#151517" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Hours" />
@@ -16,80 +16,28 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     />
 
     <link rel="stylesheet" href="styles.css" />
   </head>
 
   <body>
-    <div class="wrap">
-      <header>
-        <h1 class="mono">HOUR TRACKER</h1>
-        <div class="header-right">
-          <span class="sync-dot" id="sync-dot" title="Sync status"></span>
-          <span class="today mono" id="today-label"></span>
+    <div class="loading" id="loading">Connecting…</div>
+
+    <div class="app" id="app" hidden>
+      <header class="top">
+        <div class="title-row">
+          <span class="title">Hours</span>
+          <span class="today" id="today-label"></span>
         </div>
+        <div class="chips" id="chip-rail"></div>
       </header>
 
-      <div id="error-box"></div>
-      <div class="loading" id="loading">Connecting…</div>
+      <div class="scroll-body" id="scroll-body"></div>
 
-      <div id="app" hidden>
-        <section>
-          <div class="row section-header row-spaced">
-            <h2>TASKS</h2>
-            <div class="row inline-control mono">
-              <span>show</span>
-              <div class="filter">
-                <button
-                  class="btn-muted filter-toggle"
-                  id="status-filter-btn"
-                  type="button"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                >All</button>
-                <div class="filter-panel" id="status-filter-panel" hidden></div>
-              </div>
-            </div>
-          </div>
-          <div class="row row-spaced">
-            <input class="grow" id="new-task-input" placeholder="New task name" />
-            <button class="btn-accent" id="add-task-btn">+ Add</button>
-          </div>
-          <ul class="task-list" id="task-list"></ul>
-        </section>
-
-        <section>
-          <h2>NEW SESSION</h2>
-          <div class="row row-spaced">
-            <select class="grow" id="task-select">
-              <option value="">Select task…</option>
-            </select>
-            <button class="btn-accent" id="timer-btn">Start</button>
-            <button class="btn-muted" id="pause-btn" hidden>Pause</button>
-            <span class="clock mono" id="clock">00:00:00</span>
-          </div>
-          <div class="row">
-            <span class="empty inline">or log manually:</span>
-            <input class="input-minutes" id="manual-minutes" type="number" min="1" step="1" placeholder="Minutes" />
-            <input class="input-inline" id="manual-date" type="date" />
-            <button class="btn-accent" id="manual-log-btn">Log</button>
-          </div>
-        </section>
-
-        <section>
-          <div class="row section-header row-spaced">
-            <h2>SESSION LOG</h2>
-            <div class="row inline-control mono">
-              <span>from</span>
-              <input class="input-inline" id="from-date" type="date" />
-              <span>to today</span>
-            </div>
-          </div>
-          <div id="log-container"></div>
-        </section>
-      </div>
+      <div class="bottom-slot" id="bottom-slot"></div>
+      <div class="bottom-spacer"></div>
     </div>
 
     <script type="module" src="app.js"></script>
