@@ -24,7 +24,6 @@ import {
   deleteDoc,
   onSnapshot,
   writeBatch,
-  getDoc,
   getDocs
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -157,49 +156,6 @@ export const ops = {
 /** Current backup format. Bump if the shape ever changes incompatibly. */
 export const BACKUP_VERSION = 1;
 
-/** Connects using whichever identity this browser already holds — the Google
- *  account if one is signed in, otherwise the automatic anonymous one — and
- *  resolves with its id. Signing in anonymously *replaces* the current user,
- *  so it only happens when there is genuinely nobody signed in. */
-export function connect() {
-  return new Promise((resolve, reject) => {
-    onAuthStateChanged(
-      auth,
-      (user) => {
-        if (!user) return;
-        userId = user.uid;
-        resolve(user.uid);
-      },
-      reject
-    );
-    if (!auth.currentUser) signInAnonymously(auth).catch(reject);
-  });
-}
-
-/** Reads every document belonging to this browser's data into a plain object. */
-export async function exportAll() {
-  const [tasks, sessions, invoices, settings] = await Promise.all([
-    getDocs(tasksCol()),
-    getDocs(sessionsCol()),
-    getDocs(invoicesCol()),
-    getDoc(settingsRef())
-  ]);
-  const rows = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  return {
-    app: 'hour-tracker',
-    version: BACKUP_VERSION,
-    exportedAt: new Date().toISOString(),
-    dataId: userId,
-    data: {
-      tasks: rows(tasks),
-      sessions: rows(sessions),
-      invoices: rows(invoices),
-      settings: settings.exists() ? settings.data() : null
-    }
-  };
-}
-
 /** Throws unless `backup` looks like a snapshot this app wrote. */
 function validateBackup(backup) {
   const data = backup && backup.data;
@@ -252,18 +208,8 @@ export async function importAll(backup, { replace = false } = {}) {
   };
 }
 
-/** Counts what's currently stored, for the backup page's summary. */
-export async function currentCounts() {
-  const [tasks, sessions, invoices] = await Promise.all([
-    getDocs(tasksCol()),
-    getDocs(sessionsCol()),
-    getDocs(invoicesCol())
-  ]);
-  return { tasks: tasks.size, sessions: sessions.size, invoices: invoices.size };
-}
-
 /** Builds a backup from what the app already has in memory, so Export costs
- *  no extra reads. Same shape `importAll` reads and `backup.html` writes. */
+ *  no extra reads. Same shape `importAll` reads. */
 export function makeBackup({ tasks, sessions, invoices, settings }) {
   return {
     app: 'hour-tracker',

@@ -1,4 +1,4 @@
-const CACHE = 'hour-tracker-v13';
+const CACHE = 'hour-tracker-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -10,8 +10,6 @@ const ASSETS = [
   './src/render.js',
   './src/settings.js',
   './src/firebase.js',
-  './src/backup/backup.html',
-  './src/backup/backup.js',
   './assets/icon-192.png',
   './assets/icon-512.png'
 ];

@@ -132,14 +132,10 @@ src/
   state.js          the `ui` object + device-local persistence
   billing.js        pure calculations and formatting (no DOM, no Firebase)
   firebase.js       config, auth, subscriptions, writes, backup/restore
-  backup/
-    backup.html     standalone Backup & Restore page
-    backup.js       its behavior
 ```
 
-`src/backup/backup.html` is a separate page that runs on the same origin, so it
-opens the same data with no sign-in step. It exists as an escape hatch — if the
-main app ever fails to load, your data is still exportable from there.
+Export and import live on the Settings screen; see **Backups** under Behavior
+worth knowing.
 
 ---
 
