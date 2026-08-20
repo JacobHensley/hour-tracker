@@ -164,6 +164,7 @@ function timerCard(d, ui, timer) {
       .map(
         (t) => `
         <button class="menu-row" data-action="pick-track" data-id="${t.id}">
+          <span class="dot dot-${STATUS_CLASS[t.status]}"></span>
           <span class="menu-label ellip${t.id === activeTaskId ? ' current' : ''}">${esc(t.name)}</span>
           <span class="menu-check">${t.id === activeTaskId ? '✓' : ''}</span>
         </button>`
@@ -525,6 +526,7 @@ function invoiceView(d, ui) {
       .map(
         (t) => `
         <button class="menu-row" data-action="add-task-to-invoice" data-id="${t.id}">
+          <span class="dot dot-${STATUS_CLASS[t.status]}"></span>
           <span class="menu-label ellip">${esc(t.name)}</span>
           <span class="menu-hours">${formatMinutes(d.raw(t))}</span>
         </button>`

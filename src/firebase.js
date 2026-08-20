@@ -347,9 +347,11 @@ export function startFirebase({ onData, onError, onReady, onAuthFailed, onAccoun
       'tasks',
       tasksCol(),
       (snap) => {
+        // Newest first; the task list re-sorts by status and keeps this order
+        // within each status group.
         const tasks = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         onData({ tasks });
       },
       'Task sync error'
