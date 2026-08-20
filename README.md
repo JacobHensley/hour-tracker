@@ -2,9 +2,10 @@
 
 A time-tracking and invoicing PWA for one person's billable work. Track time
 against tasks with a timer or a manual entry, apply your rate and min/max
-billing rules, then package finished tasks onto invoices. Data lives in
-Firebase Firestore and syncs across devices; there is no server to run and no
-build step to wait for.
+billing rules, package finished tasks onto invoices, then hand a client an A4
+invoice document the browser saves as a PDF. Data lives in Firebase Firestore
+and syncs across devices; there is no server to run and no build step to wait
+for.
 
 Sign in with Google to sync, or skip it entirely — the app works signed out on
 a per-device anonymous identity, and linking Google later keeps the data.
@@ -31,7 +32,7 @@ bundled, transpiled, or minified — what you edit is what the browser runs.
                                  │ render(data, ui, timer)
                                  ▼
                  ┌──────────────────────────────────────────┐
-                 │ render.js  +  settings.js                 │
+                 │ render.js · settings.js · invoice-doc.js  │
                  │            pure HTML strings, no listeners│
                  └───────────────┬──────────────────────────┘
                                  │ uses
@@ -46,14 +47,16 @@ bundled, transpiled, or minified — what you edit is what the browser runs.
 ```
 
 Dependencies only point downward. `billing.js` imports nothing.
-`render.js` and `settings.js` never touch Firebase or attach a listener.
+`render.js`, `settings.js`, and `invoice-doc.js` never touch Firebase or
+attach a listener.
 `firebase.js` never touches the DOM.
 
 ### The rendering model
 
 There is no framework and no virtual DOM. `render()` rebuilds `innerHTML` for
 four slots (`account-slot`, `chip-rail`, `scroll-body`, `bottom-slot`) plus the
-settings surface, from `data` and `ui`. Three conventions make that safe:
+settings and invoice-document surfaces, from `data` and `ui`. Three conventions
+make that safe:
 
 - **Events are delegated.** Every interactive element carries a
   `data-action="…"` attribute (plus `data-id`, `data-status`, etc). One click
@@ -75,9 +78,10 @@ settings surface, from `data` and `ui`. Three conventions make that safe:
 | `localStorage` | running timer, status filter, AS BILLED toggle, explicit signed-out flag | survives reloads, stays on this device |
 
 `phase` in `app.js` (`connecting` → `signin` → `ready`) picks which top-level
-surface is visible. `ui.screen` is finer-grained: the Settings screen is a
-full-frame layer *over* the app, so the app keeps its scroll position,
-selection, and running timer underneath.
+surface is visible. `ui.screen` (`app` | `settings` | `doc`) is finer-grained:
+Settings and the invoice document are full-frame layers *over* the app, so the
+app keeps its scroll position, selection, and running timer underneath. Escape
+backs out of whichever one is on top.
 
 The running timer is deliberately device-local. Sessions sync; a live ticking
 clock does not. It's stored as `{ taskId, startedAt, pausedAt, pausedTotal }`,
@@ -104,12 +108,53 @@ The chip rail across the top switches it.
   "Bill N tasks · $X", which creates an invoice and moves them onto it in one
   batch.
 - **Invoice** — its tasks, totals, effective rate, and a DRAFT / SENT / PAID
-  state. Deleting an invoice returns its tasks to unbilled rather than
-  destroying them.
+  state, plus **View invoice**, which opens the printable document. Deleting an
+  invoice returns its tasks to unbilled rather than destroying them.
 
 A task is `Billed` exactly when it carries an `invoiceId`; that isn't a status
 you can set by hand. The other four (`Not started`, `In Progress`, `Paused`,
 `Complete`) are yours to pick.
+
+### The invoice document
+
+**View invoice** opens a third surface: the sheet a client actually gets. It
+needs two things first — a **Bill to** name (Account & data → BILL TO) and at
+least one task on the invoice — and the button stays tappable when they're
+missing, because the tap is how it says which one.
+
+`invoice-doc.js` builds it under `render.js`'s rules: HTML strings, no
+listeners, `data-action` on every control. The sheet is a true A4 box
+(`aspect-ratio: 210/297`) declared as a CSS container, and every length inside
+it is written in `cqw` — percent of the sheet's own width. The phone preview
+and the printed page are therefore one layout at two sizes: printing only
+swaps `.doc-sheet` to `210mm × 297mm`, one sheet per page, and nothing inside
+reflows. Nothing scales to fit, either — a long invoice paginates onto more
+sheets.
+
+**Pagination is estimated, not measured.** `render()` writes `innerHTML` and
+returns, so it never has a laid-out DOM to measure. `paginate()` instead
+carries block heights in the design's own units — the px each block drew on a
+362px-wide sheet — and because the sheet scales uniformly, those ratios hold at
+any width. Task names are charged at 28 characters per line, rounded up, with a
+line of slack per sheet; the estimate leans long on purpose, since a sheet that
+ends early reads fine and one that clips a line does not. The first sheet
+carries the header and Bill to, every sheet repeats the table head, and the
+total row pushes a line onto a new sheet rather than overflow.
+
+**There is no PDF library.** Download PDF sets `document.title` to the invoice
+slug (`INV-0002` → `inv-0002`, which the browser offers as the filename), calls
+`window.print()`, and restores the title on `afterprint` — not straight after
+`print()`, which returns while the dialog is still open in some browsers. The
+print stylesheet hides everything but the sheets, so the browser's own **Save
+as PDF** is the export.
+
+Its figures are derived like every other figure, so the sheet follows the
+current rate and the AS BILLED toggle. Hours print as decimals (`4.5`, not
+`4h 30m`) because a rate has to multiply them, and the date carries a year the
+app's own date formats omit — a document outlives its week. A draft has no
+issue date yet, so it reads as today until the invoice is sent. Balance due is
+the invoice total whether or not it's marked PAID: the document states what was
+billed, and DRAFT / SENT / PAID lives in the app.
 
 ---
 
@@ -129,6 +174,7 @@ src/
   app.js            entry module: delegated events, actions, Firebase wiring
   render.js         builds the app's HTML from state
   settings.js       account menu, Settings screen, sign-in screen HTML
+  invoice-doc.js    the printable A4 invoice sheet + its pagination
   state.js          the `ui` object + device-local persistence
   billing.js        pure calculations and formatting (no DOM, no Firebase)
   firebase.js       config, auth, subscriptions, writes, backup/restore
@@ -145,7 +191,7 @@ worth knowing.
 users/{uid}/tasks/{taskId}          { name, status, invoiceId, createdAt }
 users/{uid}/sessions/{sessionId}    { taskId, taskName, date: "YYYY-MM-DD", minutes, createdAt }
 users/{uid}/invoices/{invoiceId}    { number, issued: "YYYY-MM-DD"|null, paid, createdAt }
-users/{uid}/settings/billing        { rate, minHours, maxHours }
+users/{uid}/settings/billing        { rate, minHours, maxHours, clientName }
 ```
 
 Everything hangs off `users/{uid}`, which is the entire security model — the
@@ -274,3 +320,9 @@ Home Screen**; Android Chrome → Menu → **Install app**.
   part-way through never leaves sessions stranded behind a missing task.
 - **Timer sessions under a minute are discarded** on stop, rather than logged
   as zero.
+- **There is one Bill to name, not a client list.** Every invoice bills to the
+  same name, matching the rest of the app's one-person, one-client shape;
+  change it in Account & data and every document follows.
+- **The invoice you generate isn't a state.** It is rendered from the invoice's
+  tasks each time you open it, so it always shows current figures — there is no
+  stored copy of what was sent.

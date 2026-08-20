@@ -48,6 +48,16 @@
   --keyline: #ffffff; /* the white area Google's mark must sit on */
 
   --shadow-pop: 0 14px 34px rgba(0, 0, 0, 0.55);
+
+  /* Invoice document — darker chrome than the app, so the sheet reads as
+     paper laid on a surface rather than another card. */
+  --doc-bg: #0e0e10;
+  --paper: #ffffff;
+  --paper-ink: #1a1a1c;
+  --paper-ink-2: #5b5b62;
+  --paper-label: #8a8a92;
+  --paper-rule: #ececed;
+  --shadow-sheet: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -1131,6 +1141,29 @@ input::-webkit-inner-spin-button {
   color: var(--danger);
 }
 
+/* Separated from the effective rate by the same rule the card uses between
+   its other sections. */
+.generate-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--div-card);
+}
+
+/* Stays clickable when not ready: the tap is how it says what is missing. */
+.btn-generate {
+  width: 100%;
+  padding: 13px;
+  border-radius: 14px;
+  background: var(--chip);
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 800;
+}
+.btn-generate.ready {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 .add-pop {
   margin-top: 12px;
 }
@@ -1485,6 +1518,14 @@ button:disabled {
   text-wrap: pretty;
 }
 
+.client-input {
+  width: 100%;
+}
+
+.settings-row-desc.spaced {
+  margin-top: 9px;
+}
+
 .settings-sub {
   margin-top: 14px;
   padding-top: 14px;
@@ -1645,4 +1686,289 @@ button:disabled {
 
 .toast.signin-toast {
   margin: 18px 0 0;
+}
+
+/* ---------- Invoice document ---------- */
+
+/*
+ * The sheet is a true A4 box and every length inside it is a `cqw` — one
+ * percent of the sheet's own width. So the whole layout is one drawing at one
+ * scale: 362px wide in the phone preview, 210mm on paper, identical either
+ * way. Its own padding is a percentage instead, because container units
+ * resolve against an *ancestor* container, never the element declaring them.
+ */
+
+.doc-screen {
+  z-index: 65; /* over the settings surface, which is 60 */
+  background: var(--doc-bg);
+}
+
+.doc-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-download {
+  flex: none;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.doc-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding: 0 14px 22px;
+  padding-bottom: calc(22px + env(safe-area-inset-bottom));
+  scrollbar-width: none;
+}
+.doc-scroll::-webkit-scrollbar {
+  width: 0;
+}
+
+.doc-sheet {
+  flex: none;
+  container-type: inline-size;
+  aspect-ratio: 210 / 297;
+  padding: 7.182% 6.63% 8.287%; /* 26 / 24 / 30 of a 362-wide sheet */
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+}
+
+/* --- Sheet header --- */
+
+.doc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4.42cqw;
+}
+
+.doc-head-left {
+  min-width: 0;
+}
+
+.doc-brand {
+  font-size: 5.525cqw;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.doc-number {
+  margin-top: 0.552cqw;
+  font-size: 3.315cqw;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--paper-ink-2);
+}
+
+.doc-biz {
+  margin-top: 4.972cqw;
+  font-size: 3.591cqw;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.doc-head-meta {
+  flex: none;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1.381cqw 3.867cqw;
+  font-size: 3.039cqw;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.doc-meta-label {
+  font-weight: 600;
+  color: var(--paper-label);
+}
+.doc-meta-date {
+  font-weight: 600;
+}
+.doc-meta-total {
+  font-weight: 800;
+}
+
+.doc-bill-to {
+  margin-top: 6.63cqw;
+}
+
+.doc-bill-label {
+  font-size: 2.762cqw;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--paper-label);
+}
+
+.doc-bill-name {
+  margin-top: 1.105cqw;
+  font-size: 3.591cqw;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Sheets after the first carry the number alone — enough to keep a loose
+   page identifiable, nothing that reads as a second invoice. */
+.doc-cont-number {
+  font-size: 3.315cqw;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--paper-ink-2);
+}
+
+/* --- Line table --- */
+
+.doc-thead {
+  display: flex;
+  align-items: baseline;
+  gap: 2.762cqw;
+  margin-top: 6.63cqw;
+  padding-bottom: 1.934cqw;
+  border-bottom: 0.276cqw solid var(--paper-ink);
+  font-size: 2.762cqw;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--paper-label);
+}
+
+.doc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 2.762cqw;
+  padding: 3.039cqw 0;
+  border-bottom: 0.276cqw solid var(--paper-rule);
+  font-size: 3.039cqw;
+}
+
+.doc-col-item {
+  flex: 1;
+  min-width: 0;
+}
+.doc-col-hours {
+  flex: none;
+  width: 11.602cqw;
+  text-align: right;
+}
+.doc-col-rate {
+  flex: none;
+  width: 14.365cqw;
+  text-align: right;
+}
+.doc-col-amount {
+  flex: none;
+  width: 17.127cqw;
+  text-align: right;
+}
+
+.doc-line-name {
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.doc-num {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper-ink-2);
+}
+
+.doc-line-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* No rule of its own — the last row's border already closes the table. */
+.doc-total {
+  display: flex;
+  align-items: baseline;
+  gap: 2.762cqw;
+  margin-top: 3.867cqw;
+  font-size: 3.039cqw;
+}
+
+.doc-total-label {
+  font-weight: 700;
+}
+
+.doc-total-amount {
+  font-size: 4.144cqw;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Print — "Download PDF" is the browser's own Save as PDF ---------- */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    height: auto;
+    background: var(--paper);
+  }
+
+  /* Everything but the sheets goes: the app underneath, the chrome above. */
+  .loading,
+  .signin,
+  .app > *:not(.doc-screen),
+  .doc-screen[hidden],
+  .doc-top {
+    display: none !important;
+  }
+
+  .app {
+    display: block;
+    max-width: none;
+    height: auto;
+    background: var(--paper);
+  }
+
+  .doc-screen {
+    position: static;
+    display: block;
+    background: var(--paper);
+  }
+
+  .doc-scroll {
+    display: block;
+    overflow: visible;
+    padding: 0;
+  }
+
+  /* Real A4, one sheet per page. `cqw` keeps the contents in proportion, so
+     nothing about the layout changes — only its size. */
+  .doc-sheet {
+    width: 210mm;
+    height: 297mm;
+    aspect-ratio: auto;
+    border-radius: 0;
+    box-shadow: none;
+    break-after: page;
+    break-inside: avoid;
+  }
+  .doc-sheet:last-child {
+    break-after: auto;
+  }
+
+  /* Backgrounds and greys are the document, not decoration. */
+  *,
+  *::before,
+  *::after {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }

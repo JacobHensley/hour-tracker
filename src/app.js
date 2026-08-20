@@ -27,6 +27,7 @@ import {
   clearLocalState
 } from './state.js';
 import { render } from './render.js';
+import { docSlug } from './invoice-doc.js';
 import { signInScreen } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
@@ -451,6 +452,47 @@ const actions = {
     rerender();
   },
 
+  // --- Invoice document ---
+  'open-doc'() {
+    const invoice = currentInvoice();
+    if (!invoice) return;
+    // Order matters: the client name is the setting the user has to go and
+    // fix, so it is worth reporting before the emptier invoice problem.
+    if (!(data.settings.clientName || '').trim()) {
+      return flash('Set a Bill to name in Account & data first.');
+    }
+    if (!data.tasks.some((t) => t.invoiceId === invoice.id)) {
+      return flash('Add a task to this invoice first.');
+    }
+    closePopups();
+    ui.screen = 'doc';
+    rerender();
+  },
+  'close-doc'() {
+    ui.screen = 'app';
+    rerender();
+  },
+  // No PDF library and no build step: the print stylesheet reduces the page
+  // to the sheets themselves and the browser's own "Save as PDF" writes the
+  // file. The document title is what it offers as the filename.
+  'download-doc'() {
+    const invoice = currentInvoice();
+    if (!invoice) return;
+    const title = document.title;
+    document.title = docSlug(invoice.number);
+    // Restored on afterprint, not straight after print(): print() returns
+    // before the dialog closes in some browsers, and the title is what the
+    // filename is read from while it is open.
+    window.addEventListener(
+      'afterprint',
+      () => {
+        document.title = title;
+      },
+      { once: true }
+    );
+    window.print();
+  },
+
   // --- Sign in / out ---
   'go-signin'() {
     // Deliberately does not sign out: an anonymous user's data is preserved
@@ -683,8 +725,13 @@ $('app').addEventListener('change', (event) => {
 
   const key = event.target.dataset.setting;
   if (!key) return;
-  const value = Number(event.target.value);
-  data.settings[key] = Number.isFinite(value) && value >= 0 ? value : 0;
+  // The billing rules are numbers; the Bill to name is the one text setting.
+  if (key === 'clientName') {
+    data.settings[key] = event.target.value.trim();
+  } else {
+    const value = Number(event.target.value);
+    data.settings[key] = Number.isFinite(value) && value >= 0 ? value : 0;
+  }
   guard(ops.saveSettings({ [key]: data.settings[key] }), 'Could not save settings');
   rerender();
 });
@@ -697,7 +744,8 @@ document.addEventListener('click', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (closePopups()) return rerender();
-    // With no popup open, Escape backs out of the settings surface.
+    // With no popup open, Escape backs out of whichever surface is on top.
+    if (ui.screen === 'doc') return actions['close-doc']();
     if (ui.screen === 'settings') return actions['close-settings']();
   }
   if (event.key !== 'Enter') return;

@@ -153,6 +153,15 @@ export function settingsScreen(data, ui) {
       </div>`
     : `<button class="dashed-btn import-btn" data-action="pick-import-file"${busy ? ' disabled' : ''}>Choose a backup file</button>`;
 
+  const billTo = `
+    <div class="caption settings-caption">BILL TO</div>
+    <div class="settings-card">
+      <input id="client-name-input" class="input client-input" data-setting="clientName" value="${esc(
+        data.settings.clientName || ''
+      )}" placeholder="Client name" maxlength="120">
+      <div class="settings-row-desc spaced">Appears on every invoice you generate.</div>
+    </div>`;
+
   const backups = `
     <div class="caption settings-caption">BACKUPS</div>
     <div class="settings-card">
@@ -196,6 +205,7 @@ export function settingsScreen(data, ui) {
     </div>
     <div class="screen-body">
       ${accountCard}
+      ${billTo}
       ${backups}
       ${dangerZone}
       ${ui.toast ? `<div class="toast floating settings-toast">${esc(ui.toast)}</div>` : ''}

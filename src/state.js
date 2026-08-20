@@ -19,7 +19,7 @@ const POPUP_FLAGS = [
 ];
 
 export const ui = {
-  screen: 'app', // 'app' | 'settings' — the full-frame surface over the app
+  screen: 'app', // 'app' | 'settings' | 'doc' — the full-frame surface over the app
   bucket: 'unbilled', // 'unbilled' or an invoice id — the only navigation state
   selected: [], // task ids ticked for billing
   statusFilter: loadStatusFilter(), // statuses visible in the task list

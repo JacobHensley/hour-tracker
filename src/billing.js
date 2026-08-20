@@ -49,6 +49,17 @@ export function longDate(isoDate) {
   });
 }
 
+/** `2026-08-01` → `Aug 1, 2026`. The generated invoice carries a year that
+ *  `shortDate` and `longDate` both omit — a document outlives its week. */
+export function docDate(isoDate) {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
 // ---------- Formatting ----------
 
 /** `95` → `1h 35m`; `120` → `2h`; `40` → `40m` */
@@ -56,6 +67,12 @@ export function formatMinutes(totalMinutes) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return hours ? (minutes ? `${hours}h ${minutes}m` : `${hours}h`) : `${minutes}m`;
+}
+
+/** `270` → `4.5`; `240` → `4`; `75` → `1.25`. Decimal hours for the invoice
+ *  document, where `formatMinutes`' `4h 30m` would not multiply by a rate. */
+export function decimalHours(totalMinutes) {
+  return String(Math.round((totalMinutes / 60) * 100) / 100);
 }
 
 /** `3661` → `01:01:01` */

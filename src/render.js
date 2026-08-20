@@ -19,6 +19,7 @@ import {
   longDate
 } from './billing.js';
 import { accountButton, settingsScreen } from './settings.js';
+import { docScreen } from './invoice-doc.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -52,10 +53,15 @@ export function render(data, ui, timer) {
   $('bottom-slot').innerHTML = bottomSlot(d, ui, timer);
 
   // The settings surface sits over the app, which keeps its scroll position,
-  // selection and running timer underneath.
+  // selection and running timer underneath. The document surface layers the
+  // same way, one level higher.
   const settings = $('settings-screen');
   settings.hidden = ui.screen !== 'settings';
   settings.innerHTML = settings.hidden ? '' : settingsScreen(data, ui);
+
+  const doc = $('doc-screen');
+  doc.hidden = ui.screen !== 'doc';
+  doc.innerHTML = doc.hidden ? '' : docScreen(data, ui, data.account);
 
   restoreFocus(typing);
 }
@@ -93,6 +99,9 @@ function derive(data, ui) {
 
   if (ui.bucket !== 'unbilled' && !invoices.some((i) => i.id === ui.bucket)) {
     ui.bucket = 'unbilled';
+    // The document belongs to an invoice; with none selected there is nothing
+    // for it to show, so it closes rather than going blank.
+    if (ui.screen === 'doc') ui.screen = 'app';
   }
   ui.selected = ui.selected.filter((id) => unbilled.some((t) => t.id === id));
   if (!unbilled.some((t) => t.id === ui.trackTaskId)) {
@@ -461,6 +470,9 @@ function invoiceView(d, ui) {
     .join('');
 
   const effRate = invMinutes > 0 ? invAmount / (invMinutes / 60) : 0;
+  // Not ready still means clickable — the tap is how the button explains
+  // which of the two prerequisites is missing.
+  const docReady = Boolean((settings.clientName || '').trim() && d.invTasks.length);
 
   const summary = `
   <div class="card inv-card">
@@ -498,6 +510,9 @@ function invoiceView(d, ui) {
     </div>`
         : ''
     }
+    <div class="generate-block">
+      <button class="btn-generate${docReady ? ' ready' : ''}" data-action="open-doc">View invoice</button>
+    </div>
   </div>`;
 
   const cards = d.invTasks

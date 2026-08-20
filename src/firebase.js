@@ -52,8 +52,9 @@ const db = initializeFirestore(app, {
 });
 
 /** Billing settings used until the user's settings doc first syncs. min/max
- *  of 0 mean "no rules" so existing data bills exactly as logged. */
-export const DEFAULT_SETTINGS = { rate: 85, minHours: 0, maxHours: 0 };
+ *  of 0 mean "no rules" so existing data bills exactly as logged. `clientName`
+ *  is the single name every generated invoice bills to. */
+export const DEFAULT_SETTINGS = { rate: 85, minHours: 0, maxHours: 0, clientName: '' };
 
 let userId = null;
 
