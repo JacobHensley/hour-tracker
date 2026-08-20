@@ -412,5 +412,12 @@ export function startFirebase({ onData, onError, onReady, onAuthFailed, onAccoun
     onReady();
   });
 
-  if (autoSignIn() && !auth.currentUser) signInAnonymously(auth).catch(onAuthFailed);
+  // No eager sign-in here. Firebase restores the persisted session from
+  // IndexedDB asynchronously, so `auth.currentUser` is null on every load —
+  // including a signed-in one. Calling signInAnonymously() here therefore
+  // always ran, and it only short-circuits for a restored *anonymous* user:
+  // for a Google account it minted a fresh anonymous user and dropped the
+  // real session, logging the user out on every refresh. The callback above
+  // covers both cases — it fires with the restored user, or with null, and
+  // the null branch signs in anonymously.
 }
